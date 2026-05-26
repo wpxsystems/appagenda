@@ -1,0 +1,30 @@
+{
+  "name": "@racket-app/mobile",
+  "version": "0.0.1",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint app --ext .ts,.tsx",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^14.0.0",
+    "@racket-app/shared": "workspace:*",
+    "@racket-app/ui": "workspace:*",
+    "expo": "~51.0.0",
+    "expo-notifications": "~0.28.0",
+    "expo-router": "~3.5.0",
+    "expo-secure-store": "~13.0.0",
+    "react": "18.2.0",
+    "react-native": "0.74.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@types/react": "^18.3.0",
+    "typescript": "^5.5.0"
+  }
+}

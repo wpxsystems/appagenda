@@ -1,0 +1,32 @@
+{
+  "name": "@racket-app/db",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "generate": "drizzle-kit generate",
+    "migrate": "tsx src/migrate.ts",
+    "seed": "tsx src/seed.ts"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.24.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "@racket-app/shared": "workspace:*",
+    "drizzle-orm": "^0.33.0",
+    "pg": "^8.12.0",
+    "postgres": "^3.4.0"
+  }
+}
