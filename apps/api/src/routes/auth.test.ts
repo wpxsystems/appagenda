@@ -48,7 +48,7 @@ describe('POST /auth/register', () => {
         password: 'password123',
         gender: 'male',
         cityId: '00000000-0000-0000-0000-000000000001',
-        sportProfile: { sport: 'padel', category: 'B', sidePreference: 'right' },
+        sportProfiles: [{ sport: 'padel', category: 'B', sidePreference: 'right' }],
       },
     })
     expect(res.statusCode).toBe(409)
@@ -80,7 +80,7 @@ describe('POST /auth/register', () => {
         password: 'password123',
         gender: 'male',
         cityId: '00000000-0000-0000-0000-000000000001',
-        sportProfile: { sport: 'padel', category: 'B', sidePreference: 'right' },
+        sportProfiles: [{ sport: 'padel', category: 'B', sidePreference: 'right' }],
       },
     })
     expect(res.statusCode).toBe(201)

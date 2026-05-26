@@ -11,6 +11,7 @@ interface ButtonProps {
   size?: Size
   disabled?: boolean
   fullWidth?: boolean
+  loading?: boolean
 }
 
 const variantStyles: Record<Variant, React.CSSProperties> = {

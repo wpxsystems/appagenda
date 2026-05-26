@@ -17,7 +17,7 @@ const registerBodySchema = z.object({
   password: z.string().min(8).max(100),
   gender: z.enum(Gender),
   cityId: z.string().uuid(),
-  sportProfile: sportProfileSchema,
+  sportProfiles: z.array(sportProfileSchema).min(1),
 })
 
 const ACCESS_TOKEN_TTL = 15 * 60
@@ -33,10 +33,10 @@ export async function authRoutes(app: FastifyInstance) {
     const parsed = registerBodySchema.safeParse(req.body)
     if (!parsed.success) return reply.status(400).send({ error: parsed.error.flatten() })
 
-    const { sportProfile, ...account } = parsed.data
+    const { sportProfiles, ...account } = parsed.data
 
     try {
-      const user = await registerUser(account, sportProfile)
+      const user = await registerUser(account, sportProfiles)
       const accessToken = app.jwt.sign(
         { sub: user.id, role: user.role },
         { expiresIn: ACCESS_TOKEN_TTL },

@@ -24,7 +24,7 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
   return timingSafeEqual(hashBuf, derived)
 }
 
-export async function registerUser(input: RegisterInput, sportProfile: SportProfileInput) {
+export async function registerUser(input: RegisterInput, sportProfiles: SportProfileInput[]) {
   const existing = await db.query.users.findFirst({
     where: eq(users.email, input.email.toLowerCase()),
   })
@@ -47,7 +47,9 @@ export async function registerUser(input: RegisterInput, sportProfile: SportProf
     if (!user) throw new Error('Failed to create user')
 
     await tx.insert(userLocations).values({ userId: user.id, cityId: input.cityId })
-    await insertSportProfile(tx, user.id, sportProfile)
+    for (const profile of sportProfiles) {
+      await insertSportProfile(tx, user.id, profile)
+    }
 
     return user
   })
