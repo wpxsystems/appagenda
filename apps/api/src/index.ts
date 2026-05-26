@@ -1,10 +1,22 @@
 import Fastify from 'fastify'
+import cors from '@fastify/cors'
+import authPlugin from './plugins/auth.js'
+import { authRoutes } from './routes/auth.js'
 
-const app = Fastify({ logger: true })
+async function buildApp() {
+  const app = Fastify({ logger: true })
 
-app.get('/health', async () => ({ status: 'ok' }))
+  await app.register(cors, { origin: true })
+  await app.register(authPlugin)
+  await app.register(authRoutes)
 
-const start = async () => {
+  app.get('/health', async () => ({ status: 'ok' }))
+
+  return app
+}
+
+async function start() {
+  const app = await buildApp()
   try {
     const port = Number(process.env['PORT'] ?? 3001)
     await app.listen({ port, host: '0.0.0.0' })

@@ -17,7 +17,9 @@
     "@fastify/websocket": "^10.0.0",
     "@racket-app/db": "workspace:*",
     "@racket-app/shared": "workspace:*",
-    "fastify": "^4.28.0"
+    "fastify": "^4.28.0",
+    "fastify-plugin": "^5.1.0",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
