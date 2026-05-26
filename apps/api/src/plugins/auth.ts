@@ -36,7 +36,7 @@ export default fp(async (app: FastifyInstance) => {
       const decoded = await req.jwtVerify<{ sub: string; role: string }>()
       req.user = { id: decoded.sub, role: decoded.role }
       if (decoded.role !== 'admin') {
-        reply.status(403).send({ error: 'Forbidden' })
+        return reply.status(403).send({ error: 'Forbidden' })
       }
     } catch {
       reply.status(401).send({ error: 'Unauthorized' })

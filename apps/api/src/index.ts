@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import authPlugin from './plugins/auth.js'
 import { authRoutes } from './routes/auth.js'
+import { adminRoutes } from './routes/admin.js'
 
 async function buildApp() {
   const app = Fastify({ logger: true })
@@ -9,6 +10,7 @@ async function buildApp() {
   await app.register(cors, { origin: true })
   await app.register(authPlugin)
   await app.register(authRoutes)
+  await app.register(adminRoutes)
 
   app.get('/health', async () => ({ status: 'ok' }))
 

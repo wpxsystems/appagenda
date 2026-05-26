@@ -113,6 +113,7 @@ export const venues = pgTable('venues', {
     .references(() => cities.id),
   coordinatesLng: text('coordinates_lng').notNull(),
   coordinatesLat: text('coordinates_lat').notNull(),
+  sports: sportEnum('sports').array().notNull().default(sql`ARRAY[]::sport_enum[]`),
   phone: text('phone'),
   website: text('website'),
   isActive: boolean('is_active').notNull().default(true),

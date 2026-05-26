@@ -101,7 +101,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.post('/auth/logout', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { refreshToken } = (req.body ?? {}) as { refreshToken?: string }
-    if (refreshToken) await revokeRefreshToken(refreshToken)
+    if (refreshToken) await revokeRefreshToken(refreshToken, req.user.id)
     return reply.status(204).send()
   })
 }

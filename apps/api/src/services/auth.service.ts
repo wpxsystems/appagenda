@@ -1,11 +1,14 @@
-import { eq } from '@racket-app/db'
-import { randomBytes, timingSafeEqual, scrypt } from 'crypto'
+import { eq, and, db, users, refreshTokens, userLocations, playerSportProfiles } from '@racket-app/db'
+import type { DB } from '@racket-app/db'
+import { randomBytes, timingSafeEqual, scrypt, createHash } from 'crypto'
 import { promisify } from 'util'
-import { db } from '@racket-app/db'
-import { users, refreshTokens, userLocations, playerSportProfiles } from '@racket-app/db'
 import type { RegisterInput, LoginInput, SportProfileInput } from '@racket-app/shared'
 
 const scryptAsync = promisify(scrypt)
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
+}
 
 async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex')
@@ -29,26 +32,25 @@ export async function registerUser(input: RegisterInput, sportProfile: SportProf
 
   const passwordHash = await hashPassword(input.password)
 
-  const [user] = await db
-    .insert(users)
-    .values({
-      email: input.email.toLowerCase(),
-      passwordHash,
-      name: input.name,
-      gender: input.gender,
-    })
-    .returning()
+  // All three inserts must succeed together
+  return db.transaction(async (tx) => {
+    const [user] = await tx
+      .insert(users)
+      .values({
+        email: input.email.toLowerCase(),
+        passwordHash,
+        name: input.name,
+        gender: input.gender,
+      })
+      .returning()
 
-  if (!user) throw new Error('Failed to create user')
+    if (!user) throw new Error('Failed to create user')
 
-  await db.insert(userLocations).values({
-    userId: user.id,
-    cityId: input.cityId,
+    await tx.insert(userLocations).values({ userId: user.id, cityId: input.cityId })
+    await insertSportProfile(tx, user.id, sportProfile)
+
+    return user
   })
-
-  await insertSportProfile(user.id, sportProfile)
-
-  return user
 }
 
 export async function loginUser(input: LoginInput) {
@@ -68,41 +70,44 @@ export async function loginUser(input: LoginInput) {
 }
 
 export async function saveRefreshToken(userId: string, token: string, expiresAt: Date) {
-  await db.insert(refreshTokens).values({ userId, token, expiresAt })
+  await db.insert(refreshTokens).values({ userId, token: hashToken(token), expiresAt })
 }
 
 export async function rotateRefreshToken(oldToken: string, newToken: string, expiresAt: Date) {
+  const tokenHash = hashToken(oldToken)
   const existing = await db.query.refreshTokens.findFirst({
-    where: eq(refreshTokens.token, oldToken),
+    where: eq(refreshTokens.token, tokenHash),
   })
   if (!existing || existing.expiresAt < new Date()) {
     throw Object.assign(new Error('Invalid refresh token'), { code: 'INVALID_TOKEN' })
   }
 
-  await db.delete(refreshTokens).where(eq(refreshTokens.token, oldToken))
+  await db.delete(refreshTokens).where(eq(refreshTokens.token, tokenHash))
   await db.insert(refreshTokens).values({
     userId: existing.userId,
-    token: newToken,
+    token: hashToken(newToken),
     expiresAt,
   })
 
   return existing.userId
 }
 
-export async function revokeRefreshToken(token: string) {
-  await db.delete(refreshTokens).where(eq(refreshTokens.token, token))
+export async function revokeRefreshToken(token: string, userId: string) {
+  await db
+    .delete(refreshTokens)
+    .where(and(eq(refreshTokens.token, hashToken(token)), eq(refreshTokens.userId, userId)))
 }
 
-async function insertSportProfile(userId: string, profile: SportProfileInput) {
+async function insertSportProfile(tx: Parameters<Parameters<DB['transaction']>[0]>[0], userId: string, profile: SportProfileInput) {
   if (profile.sport === 'tennis') {
-    await db.insert(playerSportProfiles).values({
+    await tx.insert(playerSportProfiles).values({
       userId,
       sport: 'tennis',
       skillLevel: profile.skillLevel,
       playFormat: profile.playFormat,
     })
   } else {
-    await db.insert(playerSportProfiles).values({
+    await tx.insert(playerSportProfiles).values({
       userId,
       sport: profile.sport,
       category: profile.category,
