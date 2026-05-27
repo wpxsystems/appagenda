@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { getPgClient, db, games, gameParticipants, venues, eq, sql } from '@racket-app/db'
+import { getPgClient, db, games, gameParticipants, venues, userLocations, eq, sql } from '@racket-app/db'
 import { z } from 'zod'
 
 const availabilitySchema = z.record(
@@ -90,6 +90,34 @@ export async function usersRoutes(app: FastifyInstance) {
     const pg = getPgClient()
     await pg`UPDATE users SET availability_json = ${JSON.stringify(parsed.data)} WHERE id = ${userId}`
     return reply.send(parsed.data)
+  })
+
+  app.get('/users/me/location', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const userId = (req.user as { id: string }).id
+    const pg = getPgClient()
+    const rows = await pg`
+      SELECT ul.city_id, c.name, c.state
+      FROM user_locations ul
+      JOIN cities c ON c.id = ul.city_id
+      WHERE ul.user_id = ${userId}
+      LIMIT 1
+    `
+    if (!rows[0]) return reply.status(404).send({ error: 'No location set' })
+    return reply.send({ cityId: rows[0]['city_id'], name: rows[0]['name'], state: rows[0]['state'] })
+  })
+
+  app.patch('/users/me/location', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const userId = (req.user as { id: string }).id
+    const { cityId } = (req.body ?? {}) as { cityId?: string }
+    if (!cityId) return reply.status(400).send({ error: 'cityId required' })
+    const pg = getPgClient()
+    await pg`
+      INSERT INTO user_locations (user_id, city_id)
+      VALUES (${userId}, ${cityId})
+      ON CONFLICT (user_id) DO UPDATE SET city_id = ${cityId}, updated_at = now()
+    `
+    const rows = await pg`SELECT c.id, c.name, c.state FROM cities c WHERE c.id = ${cityId} LIMIT 1`
+    return reply.send({ cityId: rows[0]['id'], name: rows[0]['name'], state: rows[0]['state'] })
   })
 
   // Add a new sport profile

@@ -512,6 +512,8 @@ function GameDetailView({ game, userId, onBack }: {
 }
 
 // ─── main ────────────────────────────────────────────────────────────────────
+interface City { id: string; name: string; state: string }
+
 export default function DescobrirPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -521,10 +523,28 @@ export default function DescobrirPage() {
   const [tab, setTab]               = useState('descobrir')
   const [selected, setSelected]     = useState<GameDetail | null>(null)
   const [notifOpen, setNotifOpen]   = useState(false)
+  const [cityOpen, setCityOpen]     = useState(false)
+  const [cities, setCities]         = useState<City[]>([])
+  const [currentCity, setCurrentCity] = useState<City | null>(null)
+  const [citySearch, setCitySearch] = useState('')
+
+  const loadGames = useCallback((cityId?: string) => {
+    const url = cityId ? `/games?cityId=${cityId}` : '/games'
+    apiGet<Game[]>(url).then(setGames).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!user) { router.push('/login'); return }
-    apiGet<Game[]>('/games').then(setGames).catch(() => {})
+
+    // load user's home city
+    apiGet<City>('/users/me/location').then(loc => {
+      setCurrentCity(loc)
+      loadGames(loc.id)
+    }).catch(() => loadGames())
+
+    // load all cities for picker
+    apiGet<City[]>('/cities').then(setCities).catch(() => {})
+
     const gameId = searchParams.get('gameId')
     if (gameId) {
       apiGet<GameDetail>(`/games/${gameId}`).then(detail => {
@@ -532,7 +552,14 @@ export default function DescobrirPage() {
         setSelected({ ...detail, openSpots, participantCount: detail.participants?.length ?? 0 })
       }).catch(() => {})
     }
-  }, [user, router, searchParams])
+  }, [user, router, searchParams, loadGames])
+
+  function selectCity(city: City) {
+    setCurrentCity(city)
+    setCityOpen(false)
+    setCitySearch('')
+    loadGames(city.id)
+  }
 
   async function openGame(id: string) {
     const detail = await apiGet<GameDetail>(`/games/${id}`)
@@ -584,15 +611,87 @@ export default function DescobrirPage() {
           </div>
         </div>
       )}
+      {cityOpen && (
+        <div style={{ position:'fixed', inset:0, zIndex:999, display:'flex', alignItems:'center',
+          justifyContent:'center', background:'rgba(26,24,19,0.55)', padding:'0 24px' }}
+          onClick={() => { setCityOpen(false); setCitySearch('') }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ width:'100%', maxWidth:360, background:C.cream, borderRadius:28,
+              padding:'24px 0 8px', boxShadow:'0 24px 60px rgba(0,0,0,0.22)',
+              display:'flex', flexDirection:'column', maxHeight:'70vh' }}>
+            {/* header */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+              padding:'0 20px 16px' }}>
+              <span style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:18, color:C.ink }}>
+                Escolher cidade
+              </span>
+              <button onClick={() => { setCityOpen(false); setCitySearch('') }}
+                style={{ background:'none', border:'none', cursor:'pointer', padding:4 }}>
+                <X size={20} color={C.inkSoft} />
+              </button>
+            </div>
+            {/* search */}
+            <div style={{ padding:'0 20px 12px' }}>
+              <input
+                value={citySearch}
+                onChange={e => setCitySearch(e.target.value)}
+                placeholder="Buscar cidade..."
+                autoFocus
+                style={{ width:'100%', padding:'10px 14px', borderRadius:12, fontSize:14,
+                  fontFamily:BODY, border:`1.5px solid ${C.line}`, background:C.card,
+                  color:C.ink, outline:'none', boxSizing:'border-box' }}
+              />
+            </div>
+            {/* list */}
+            <div style={{ overflowY:'auto', flex:1, padding:'0 12px 12px' }}>
+              {cities
+                .filter(c => c.name.toLowerCase().includes(citySearch.toLowerCase()))
+                .map(city => {
+                  const active = currentCity?.id === city.id
+                  return (
+                    <button key={city.id} onClick={() => selectCity(city)}
+                      style={{ width:'100%', textAlign:'left', padding:'12px 12px',
+                        borderRadius:14, border:'none', cursor:'pointer', display:'flex',
+                        alignItems:'center', justifyContent:'space-between',
+                        background: active ? `${C.lime}33` : 'transparent',
+                        marginBottom:2 }}>
+                      <div>
+                        <div style={{ fontFamily:BODY, fontWeight:700, fontSize:14,
+                          color:C.ink }}>{city.name}</div>
+                        <div style={{ fontFamily:BODY, fontSize:12, color:C.inkSoft, marginTop:1 }}>
+                          {city.state}
+                        </div>
+                      </div>
+                      {active && (
+                        <div style={{ width:8, height:8, borderRadius:8, background:'#22C55E' }} />
+                      )}
+                    </button>
+                  )
+                })}
+              {cities.filter(c => c.name.toLowerCase().includes(citySearch.toLowerCase())).length === 0 && (
+                <div style={{ padding:'24px 12px', textAlign:'center',
+                  fontFamily:BODY, fontSize:13, color:C.inkSoft }}>
+                  Nenhuma cidade encontrada
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <PhoneShell bottomBar={<NavBar tab={tab} setTab={setTab} />}>
         <div style={{ paddingBottom: 16 }}>
 
           {/* topbar */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 20px 4px' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:6, color:C.inkSoft }}>
-              <MapPin size={14} strokeWidth={2.6} />
-              <span style={{ fontSize:13, fontWeight:600, fontFamily:BODY }}>Joinville, SC</span>
-            </div>
+            <button onClick={() => setCityOpen(true)}
+              style={{ display:'flex', alignItems:'center', gap:5, background:'none', border:'none',
+                cursor:'pointer', padding:'4px 8px 4px 0' }}>
+              <MapPin size={14} strokeWidth={2.6} color={C.coral} />
+              <span style={{ fontSize:13, fontWeight:700, fontFamily:BODY, color:C.ink }}>
+                {currentCity ? `${currentCity.name}, ${currentCity.state}` : 'Selecionar cidade'}
+              </span>
+              <ChevronRight size={13} color={C.inkSoft} strokeWidth={2.5} style={{ rotate:'90deg' }} />
+            </button>
             <button onClick={() => setNotifOpen(true)}
               style={{ position:'relative', background:'none', border:'none', cursor:'pointer', padding:4 }}>
               <Bell size={20} strokeWidth={2.4} color={C.ink} />
