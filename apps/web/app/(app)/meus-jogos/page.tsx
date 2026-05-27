@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { apiGet } from '@/lib/api'
 import { PageWrapper, PhoneShell, C, DISPLAY, BODY } from '@/components/PhoneShell'
-import { Compass, Plus, User, CalendarDays, MapPin, Clock, ChevronRight, Zap } from 'lucide-react'
+import { Compass, Plus, User, CalendarDays, MapPin, Clock, ChevronRight, Zap, Users } from 'lucide-react'
 
 const SPORTS: Record<string, { label: string; color: string }> = {
   padel:        { label: 'Padel',        color: '#2E6F9E' },
@@ -39,10 +39,11 @@ function NavBar() {
     <div style={{ display:'flex', alignItems:'center', padding:'8px 8px 20px',
       background:C.card, borderTop:`1.5px solid ${C.line}` }}>
       {([
-        ['descobrir', Compass,      'Descobrir'],
-        ['meus-jogos', CalendarDays,'Meus jogos'],
-        ['criar',      Plus,        'Criar'],
-        ['perfil',     User,        'Perfil'],
+        ['descobrir',  Compass,      'Descobrir'],
+        ['meus-jogos', CalendarDays, 'Meus jogos'],
+        ['criar',      Plus,         'Criar'],
+        ['comunidade', Users,        'Comunidade'],
+        ['perfil',     User,         'Perfil'],
       ] as const).map(([key, Icon, label]) => {
         const isCenter = key === 'criar'
         const on = key === 'meus-jogos'
@@ -58,13 +59,17 @@ function NavBar() {
         )
         return (
           <button key={key}
-            onClick={() => router.push(key === 'descobrir' ? '/descobrir' : key === 'meus-jogos' ? '/meus-jogos' : '/perfil')}
+            onClick={() => router.push(
+              key === 'descobrir' ? '/descobrir' :
+              key === 'meus-jogos' ? '/meus-jogos' :
+              key === 'comunidade' ? '/comunidade' : '/perfil'
+            )}
             style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
               gap:2, border:'none', background:'none', cursor:'pointer', padding:'2px 0' }}>
-            <Icon size={19} strokeWidth={on?2.8:2.2} color={on?C.ink:C.inkSoft} />
-            <span style={{ fontSize:10, fontWeight:700, fontFamily:BODY,
+            <Icon size={18} strokeWidth={on?2.8:2.2} color={on?C.ink:C.inkSoft} />
+            <span style={{ fontSize:9, fontWeight:700, fontFamily:BODY,
               color:on?C.ink:C.inkSoft, whiteSpace:'nowrap' }}>{label}</span>
-            <div style={{ width:16, height:3, borderRadius:3, background:on?C.lime:'transparent' }} />
+            <div style={{ width:14, height:3, borderRadius:3, background:on?C.lime:'transparent' }} />
           </button>
         )
       })}

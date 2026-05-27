@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { apiGet, apiPost } from '@/lib/api'
 import { PageWrapper, PhoneShell, C, DISPLAY, BODY } from '@/components/PhoneShell'
-import { MapPin, Bell, ChevronRight, Clock, Plus, Compass, User, Send, MessageCircle, Star, CalendarDays, X } from 'lucide-react'
+import { MapPin, Bell, ChevronRight, Clock, Plus, Compass, User, Send, MessageCircle, Star, CalendarDays, X, Users } from 'lucide-react'
 
 // ─── types ───────────────────────────────────────────────────────────────────
 const SPORTS_INFO: Record<string, { label: string; color: string }> = {
@@ -82,10 +82,11 @@ function NavBar({ tab, setTab }: { tab: string; setTab: (t: string) => void }) {
     <div style={{ display:'flex', alignItems:'center', padding:'8px 12px 20px',
       background: C.card, borderTop:`1.5px solid ${C.line}` }}>
       {([
-        ['descobrir', Compass,      'Descobrir'],
+        ['descobrir',  Compass,      'Descobrir'],
         ['meus-jogos', CalendarDays, 'Meus jogos'],
-        ['criar',      Plus,        'Criar'],
-        ['perfil',     User,        'Perfil'],
+        ['criar',      Plus,         'Criar'],
+        ['comunidade', Users,        'Comunidade'],
+        ['perfil',     User,         'Perfil'],
       ] as const).map(([key, Icon, label]) => {
         const center = key === 'criar', on = tab === key
         if (center) return (
@@ -101,13 +102,14 @@ function NavBar({ tab, setTab }: { tab: string; setTab: (t: string) => void }) {
           <button key={key} onClick={() => {
             if (key === 'perfil') router.push('/perfil')
             else if (key === 'meus-jogos') router.push('/meus-jogos')
+            else if (key === 'comunidade') router.push('/comunidade')
             else setTab(key)
           }}
-            style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3,
-              border:'none', background:'none', cursor:'pointer' }}>
-            <Icon size={19} strokeWidth={on?2.8:2.2} color={on?C.ink:C.inkSoft} />
-            <span style={{ fontSize:10, fontWeight:700, fontFamily:BODY, color:on?C.ink:C.inkSoft, whiteSpace:'nowrap' }}>{label}</span>
-            <div style={{ width:16, height:3, borderRadius:3, background:on?C.lime:'transparent' }} />
+            style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:2,
+              border:'none', background:'none', cursor:'pointer', padding:'2px 0' }}>
+            <Icon size={18} strokeWidth={on?2.8:2.2} color={on?C.ink:C.inkSoft} />
+            <span style={{ fontSize:9, fontWeight:700, fontFamily:BODY, color:on?C.ink:C.inkSoft, whiteSpace:'nowrap' }}>{label}</span>
+            <div style={{ width:14, height:3, borderRadius:3, background:on?C.lime:'transparent' }} />
           </button>
         )
       })}

@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { apiGet } from '@/lib/api'
 import { PageWrapper, PhoneShell, C, DISPLAY, BODY } from '@/components/PhoneShell'
-import { MapPin, ChevronRight, Compass, Plus, User, LogOut, Camera, X, Check, CalendarDays } from 'lucide-react'
+import { MapPin, ChevronRight, Compass, Plus, User, LogOut, Camera, X, Check, CalendarDays, Users } from 'lucide-react'
 
 interface SportProfile {
   id: string; sport: string; category: string | null
@@ -198,6 +198,7 @@ function NavBar({ onNavigate }: { onNavigate: (t: string) => void }) {
         ['descobrir',  Compass,      'Descobrir'],
         ['meus-jogos', CalendarDays, 'Meus jogos'],
         ['criar',      Plus,         'Criar'],
+        ['comunidade', Users,        'Comunidade'],
         ['perfil',     User,         'Perfil'],
       ] as const).map(([key, Icon, label]) => {
         const center = key === 'criar'
@@ -212,12 +213,16 @@ function NavBar({ onNavigate }: { onNavigate: (t: string) => void }) {
           </button>
         )
         return (
-          <button key={key} onClick={() => onNavigate(key === 'descobrir' ? '/descobrir' : key === 'meus-jogos' ? '/meus-jogos' : '/perfil')}
-            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-              border: 'none', background: 'none', cursor: 'pointer' }}>
-            <Icon size={19} strokeWidth={on ? 2.8 : 2.2} color={on ? C.ink : C.inkSoft} />
-            <span style={{ fontSize: 10, fontWeight: 700, fontFamily: BODY, color: on ? C.ink : C.inkSoft, whiteSpace: 'nowrap' }}>{label}</span>
-            <div style={{ width: 16, height: 3, borderRadius: 3, background: on ? C.lime : 'transparent' }} />
+          <button key={key} onClick={() => onNavigate(
+            key === 'descobrir' ? '/descobrir' :
+            key === 'meus-jogos' ? '/meus-jogos' :
+            key === 'comunidade' ? '/comunidade' : '/perfil'
+          )}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+              border: 'none', background: 'none', cursor: 'pointer', padding: '2px 0' }}>
+            <Icon size={18} strokeWidth={on ? 2.8 : 2.2} color={on ? C.ink : C.inkSoft} />
+            <span style={{ fontSize: 9, fontWeight: 700, fontFamily: BODY, color: on ? C.ink : C.inkSoft, whiteSpace: 'nowrap' }}>{label}</span>
+            <div style={{ width: 14, height: 3, borderRadius: 3, background: on ? C.lime : 'transparent' }} />
           </button>
         )
       })}
