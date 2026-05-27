@@ -7,3 +7,7 @@ dist
 .DS_Store
 coverage
 *.tsbuildinfo
+
+# Credenciais e backups — nunca commitar
+docs/credenciais.md
+apps/_api_fastify_backup/
