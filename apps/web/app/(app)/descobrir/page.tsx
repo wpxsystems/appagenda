@@ -405,7 +405,26 @@ function GameDetailView({ game, userId, onBack }: {
             </div>
           )}
 
-          {/* CONVERSA */}
+          {/* CONVERSA — só para participantes */}
+          {!alreadyIn ? (
+            <div style={{ background:C.cream, borderRadius:20, border:`1.5px solid ${C.line}`,
+              padding:'14px 16px', display:'flex', alignItems:'center', gap:12,
+              opacity:0.5, marginBottom:8 }}>
+              <div style={{ width:38, height:38, borderRadius:12, background:`${s.color}14`,
+                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <MessageCircle size={17} color={s.color} />
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:800, color:C.ink, fontFamily:DISPLAY }}>
+                  Conversa do jogo
+                </div>
+                <div style={{ fontSize:12, color:C.inkSoft, fontFamily:BODY, marginTop:1 }}>
+                  Entre no jogo para participar
+                </div>
+              </div>
+              <span style={{ fontSize:18 }}>🔒</span>
+            </div>
+          ) : (
           <div style={{ background:C.cream, borderRadius:20, border:`1.5px solid ${C.line}`,
             overflow:'hidden', marginBottom: 8 }}>
             {/* header row */}
@@ -506,6 +525,7 @@ function GameDetailView({ game, userId, onBack }: {
               </div>
             )}
           </div>
+          )}
 
         </div>
       </PhoneShell>
