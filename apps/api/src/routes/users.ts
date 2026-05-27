@@ -171,6 +171,7 @@ export async function usersRoutes(app: FastifyInstance) {
     }
     const rows = await pg`SELECT id, sport, category, side_preference, skill_level, play_format, is_active FROM player_sport_profiles WHERE user_id = ${userId} AND sport = ${sport} LIMIT 1`
     const r = rows[0]
+    if (!r) return reply.status(500).send({ error: 'Update failed' })
     return reply.send({
       id: r['id'], sport: r['sport'], category: r['category'],
       sidePreference: r['side_preference'], skillLevel: r['skill_level'],
