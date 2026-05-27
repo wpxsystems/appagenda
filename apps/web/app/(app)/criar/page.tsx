@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { PageWrapper, PhoneShell, C, DISPLAY, BODY } from '@/components/PhoneShell'
-import { Compass, Plus, User, ChevronLeft, ChevronRight, Check, MapPin, Info } from 'lucide-react'
+import { Compass, Plus, User, ChevronLeft, ChevronRight, Check, MapPin, Info, CalendarDays, Users } from 'lucide-react'
 
 // ─── types ───────────────────────────────────────────────────────────────────
 interface Venue { id: string; name: string; address: string; sports: string[] }
@@ -103,28 +103,37 @@ function StepDots({ step, total }: { step: number; total: number }) {
 function NavBar({ active }: { active: string }) {
   const router = useRouter()
   return (
-    <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px 20px',
+    <div style={{ display: 'flex', alignItems: 'center', padding: '8px 4px 20px',
       background: C.card, borderTop: `1.5px solid ${C.line}` }}>
-      {([['descobrir', Compass, 'Descobrir'], ['criar', Plus, 'Criar'], ['perfil', User, 'Perfil']] as const).map(([key, Icon, label]) => {
+      {([
+        ['descobrir',  Compass,      'Descobrir'],
+        ['meus-jogos', CalendarDays, 'Meus jogos'],
+        ['criar',      Plus,         'Criar'],
+        ['comunidade', Users,        'Comunidade'],
+        ['perfil',     User,         'Perfil'],
+      ] as const).map(([key, Icon, label]) => {
         const isCenter = key === 'criar'
         const on = key === active
         if (isCenter) return (
           <button key={key} onClick={() => router.push('/criar')}
             style={{ flex: 1, display: 'flex', justifyContent: 'center', border: 'none', background: 'none', cursor: 'pointer' }}>
-            <div style={{ width: 50, height: 44, borderRadius: 14, background: C.lime,
-              boxShadow: `0 6px 18px -4px ${C.lime}99`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Plus size={22} strokeWidth={3} color={C.ink} />
+            <div style={{ width: 46, height: 40, borderRadius: 13, background: C.lime,
+              boxShadow: `0 6px 14px -4px ${C.lime}99`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Plus size={20} strokeWidth={3} color={C.ink} />
             </div>
           </button>
         )
         return (
-          <button key={key}
-            onClick={() => router.push(key === 'descobrir' ? '/descobrir' : '/perfil')}
+          <button key={key} onClick={() => router.push(
+            key === 'descobrir' ? '/descobrir' :
+            key === 'meus-jogos' ? '/meus-jogos' :
+            key === 'comunidade' ? '/comunidade' : '/perfil'
+          )}
             style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-              gap: 3, border: 'none', background: 'none', cursor: 'pointer' }}>
-            <Icon size={21} strokeWidth={on ? 2.8 : 2.2} color={on ? C.ink : C.inkSoft} />
-            <span style={{ fontSize: 11, fontWeight: 700, fontFamily: BODY, color: on ? C.ink : C.inkSoft }}>{label}</span>
-            <div style={{ width: 18, height: 3, borderRadius: 3, background: on ? C.lime : 'transparent' }} />
+              gap: 2, border: 'none', background: 'none', cursor: 'pointer', padding: '2px 0' }}>
+            <Icon size={18} strokeWidth={on ? 2.8 : 2.2} color={on ? C.ink : C.inkSoft} />
+            <span style={{ fontSize: 9, fontWeight: 700, fontFamily: BODY, color: on ? C.ink : C.inkSoft, whiteSpace: 'nowrap' }}>{label}</span>
+            <div style={{ width: 14, height: 3, borderRadius: 3, background: on ? C.lime : 'transparent' }} />
           </button>
         )
       })}
