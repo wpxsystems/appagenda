@@ -556,41 +556,31 @@ export default function DescobrirPage() {
   return (
     <PageWrapper>
       {notifOpen && (
-        <div style={{ position:'fixed', inset:0, zIndex:999, display:'flex', alignItems:'flex-end',
-          justifyContent:'center', background:'rgba(26,24,19,0.5)' }}
+        <div style={{ position:'fixed', inset:0, zIndex:999, display:'flex', alignItems:'center',
+          justifyContent:'center', background:'rgba(26,24,19,0.55)', padding:'0 24px' }}
           onClick={() => setNotifOpen(false)}>
           <div onClick={e => e.stopPropagation()}
-            style={{ width:'100%', maxWidth:430, background:C.cream, borderRadius:'24px 24px 0 0',
-              padding:'12px 0 40px', boxShadow:'0 -8px 40px rgba(0,0,0,0.18)',
-              maxHeight:'75vh', display:'flex', flexDirection:'column' }}>
-            {/* handle */}
-            <div style={{ width:40, height:4, borderRadius:4, background:C.line, margin:'0 auto 4px' }} />
-            {/* header */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-              padding:'12px 20px 16px' }}>
-              <span style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:18, color:C.ink }}>
-                Notificações
-              </span>
-              <button onClick={() => setNotifOpen(false)}
-                style={{ background:'none', border:'none', cursor:'pointer', padding:4 }}>
-                <X size={20} color={C.inkSoft} />
-              </button>
+            style={{ width:'100%', maxWidth:340, background:C.cream, borderRadius:28,
+              padding:'28px 24px 24px', boxShadow:'0 24px 60px rgba(0,0,0,0.22)',
+              display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center' }}>
+            <div style={{ width:48, height:48, borderRadius:16, background:C.card,
+              display:'flex', alignItems:'center', justifyContent:'center', marginBottom:16 }}>
+              <Bell size={22} color={C.inkSoft} strokeWidth={1.8} />
             </div>
-            {/* empty state */}
-            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
-              justifyContent:'center', padding:'24px 24px 40px', gap:12 }}>
-              <div style={{ width:56, height:56, borderRadius:18, background:C.card,
-                display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <Bell size={24} color={C.inkSoft} strokeWidth={1.8} />
-              </div>
-              <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:16, color:C.ink }}>
-                Nenhuma notificação
-              </div>
-              <div style={{ fontFamily:BODY, fontSize:13, color:C.inkSoft, textAlign:'center',
-                lineHeight:1.5, maxWidth:220 }}>
-                Quando alguém entrar no seu jogo ou te mencionar, você verá aqui
-              </div>
+            <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:18, color:C.ink, marginBottom:8 }}>
+              Nenhuma notificação
             </div>
+            <div style={{ fontFamily:BODY, fontSize:13, color:C.inkSoft, lineHeight:1.6,
+              marginBottom:24, maxWidth:220 }}>
+              Quando alguém entrar no seu jogo você será avisado aqui
+            </div>
+            <button onClick={() => setNotifOpen(false)}
+              style={{ width:'100%', padding:'13px', borderRadius:16,
+                border:`1.5px solid ${C.line}`, background:'transparent',
+                color:C.inkSoft, fontFamily:BODY, fontWeight:700,
+                fontSize:14, cursor:'pointer' }}>
+              Fechar
+            </button>
           </div>
         </div>
       )}
