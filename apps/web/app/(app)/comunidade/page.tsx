@@ -1,27 +1,10 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { apiGet, apiPost } from '@/lib/api'
+import { apiGet, apiPost, apiPut } from '@/lib/api'
 import { PageWrapper, PhoneShell, C, DISPLAY, BODY } from '@/components/PhoneShell'
-import { Compass, Plus, User, CalendarDays, Users, Star, UserPlus, ChevronRight, Search, X, Check } from 'lucide-react'
-
-// ─── types ───────────────────────────────────────────────────────────────────
-interface Group {
-  id: string
-  name: string
-  sport: string | null
-  memberCount: number
-  isAdmin: boolean
-}
-
-interface FavoritePlayer {
-  id: string
-  name: string
-  sport: string
-  category: string | null
-  skillLevel: string | null
-}
+import { Compass, Plus, User, CalendarDays, Users, Star, ChevronRight, X, Send, ArrowLeft, LogOut, Trash2 } from 'lucide-react'
 
 const SPORTS_INFO: Record<string, { label: string; color: string }> = {
   padel:        { label: 'Padel',        color: '#2E6F9E' },
@@ -29,18 +12,33 @@ const SPORTS_INFO: Record<string, { label: string; color: string }> = {
   tennis:       { label: 'Tênis',        color: '#B03A2E' },
 }
 
-// ─── Avatar ──────────────────────────────────────────────────────────────────
-function Avatar({ name, size = 40, color }: { name: string; size?: number; color?: string }) {
+interface Group { id: string; name: string; sport: string | null; memberCount: number; isAdmin: boolean; lastMessage: string | null; lastMessageAt: string | null }
+interface GroupDetail { id: string; name: string; sport: string | null; isAdmin: boolean; members: Member[] }
+interface Member { id: string; name: string; avatarUrl: string | null; role: string }
+interface GroupMessage { id: string; content: string; createdAt: string; userId: string; name: string | null }
+interface RecentPlayer { id: string; name: string; sport: string | null; category: string | null; skillLevel: string | null; lastGameAt: string; isFavorite: boolean }
+interface FavoritePlayer { id: string; name: string; sport: string | null; category: string | null; skillLevel: string | null }
+interface FavoritesData { recentPlayers: RecentPlayer[]; favorites: FavoritePlayer[] }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function Avatar({ name, size = 40 }: { name: string; size?: number }) {
   const initials = name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
-  const hue = color ? 0 : name.charCodeAt(0) * 37 % 360
-  const bg = color ?? `hsl(${hue},50%,42%)`
+  const hue = name.charCodeAt(0) * 37 % 360
   return (
-    <div style={{ width: size, height: size, borderRadius: size, background: bg,
+    <div style={{ width: size, height: size, borderRadius: size, background: `hsl(${hue},50%,42%)`,
       color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: size * 0.36, fontWeight: 700, fontFamily: DISPLAY, flexShrink: 0 }}>
       {initials}
     </div>
   )
+}
+
+function timeAgo(dt: string) {
+  const diff = (Date.now() - new Date(dt).getTime()) / 1000
+  if (diff < 60) return 'agora'
+  if (diff < 3600) return `${Math.floor(diff / 60)}min`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
+  return new Date(dt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 }
 
 // ─── NavBar ──────────────────────────────────────────────────────────────────
@@ -56,30 +54,25 @@ function NavBar() {
         ['comunidade', Users,        'Comunidade'],
         ['perfil',     User,         'Perfil'],
       ] as const).map(([key, Icon, label]) => {
-        const isCenter = key === 'criar'
-        const on = key === 'comunidade'
+        const isCenter = key === 'criar', on = key === 'comunidade'
         if (isCenter) return (
           <button key={key} onClick={() => router.push('/criar')}
             style={{ flex: 1, display: 'flex', justifyContent: 'center', border: 'none', background: 'none', cursor: 'pointer' }}>
             <div style={{ width: 46, height: 40, borderRadius: 13, background: C.lime,
-              boxShadow: `0 6px 14px -4px ${C.lime}99`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              boxShadow: `0 6px 14px -4px ${C.lime}99`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Plus size={20} strokeWidth={3} color={C.ink} />
             </div>
           </button>
         )
         return (
           <button key={key} onClick={() => router.push(
-            key === 'descobrir' ? '/descobrir' :
-            key === 'meus-jogos' ? '/meus-jogos' :
+            key === 'descobrir' ? '/descobrir' : key === 'meus-jogos' ? '/meus-jogos' :
             key === 'comunidade' ? '/comunidade' : '/perfil'
-          )}
-            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-              gap: 2, border: 'none', background: 'none', cursor: 'pointer', padding: '2px 0' }}>
+          )} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+            gap: 2, border: 'none', background: 'none', cursor: 'pointer', padding: '2px 0' }}>
             <Icon size={19} strokeWidth={on ? 2.8 : 2.2} color={on ? C.ink : C.inkSoft} />
-            <span style={{ fontSize: 10, fontWeight: 700, fontFamily: BODY,
-              color: on ? C.ink : C.inkSoft, whiteSpace: 'nowrap' }}>{label}</span>
-            <div style={{ width: 16, height: 3, borderRadius: 3, background: on ? C.lime : 'transparent' }} />
+            <span style={{ fontSize: 9, fontWeight: 700, fontFamily: BODY, color: on ? C.ink : C.inkSoft, whiteSpace: 'nowrap' }}>{label}</span>
+            <div style={{ width: 14, height: 3, borderRadius: 3, background: on ? C.lime : 'transparent' }} />
           </button>
         )
       })}
@@ -87,49 +80,173 @@ function NavBar() {
   )
 }
 
-// ─── Empty state ─────────────────────────────────────────────────────────────
-function EmptyCard({ icon, title, subtitle, action, onAction }: {
-  icon: React.ReactNode; title: string; subtitle: string
-  action?: string; onAction?: () => void
-}) {
+// ─── GroupChat ────────────────────────────────────────────────────────────────
+function GroupChat({ group, userId, onBack }: { group: GroupDetail; userId: string; onBack: () => void }) {
+  const router = useRouter()
+  const [messages, setMessages] = useState<GroupMessage[]>([])
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const msgEndRef = useRef<HTMLDivElement>(null)
+  const s = group.sport ? SPORTS_INFO[group.sport] : null
+
+  const loadMessages = useCallback(async () => {
+    try { setMessages(await apiGet<GroupMessage[]>(`/community/groups/${group.id}/messages`)) }
+    catch { /* ignore */ } finally { setLoading(false) }
+  }, [group.id])
+
+  useEffect(() => { loadMessages() }, [loadMessages])
+  useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+
+  async function send() {
+    if (!text.trim() || sending) return
+    setSending(true)
+    try {
+      await apiPost(`/community/groups/${group.id}/messages`, { content: text.trim() })
+      setText('')
+      await loadMessages()
+    } catch { /* ignore */ } finally { setSending(false) }
+  }
+
   return (
-    <div style={{ background: C.cream, borderRadius: 20, border: `1.5px solid ${C.line}`,
-      padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center',
-      textAlign: 'center', gap: 10 }}>
-      <div style={{ width: 48, height: 48, borderRadius: 16, background: C.card,
-        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {icon}
-      </div>
-      <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 15, color: C.ink }}>{title}</div>
-      <div style={{ fontFamily: BODY, fontSize: 13, color: C.inkSoft, lineHeight: 1.5 }}>{subtitle}</div>
-      {action && onAction && (
-        <button onClick={onAction}
-          style={{ marginTop: 4, padding: '10px 20px', borderRadius: 999, border: 'none',
-            background: C.lime, color: C.ink, fontFamily: DISPLAY, fontWeight: 800,
-            fontSize: 13, cursor: 'pointer' }}>
-          {action}
-        </button>
-      )}
-    </div>
+    <PageWrapper>
+      <PhoneShell bottomBar={<NavBar />}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+
+          {/* header */}
+          <div style={{ background: s?.color ?? C.ink, padding: '14px 16px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.2)', border: 'none',
+                borderRadius: 10, width: 32, height: 32, display: 'flex', alignItems: 'center',
+                justifyContent: 'center', cursor: 'pointer' }}>
+                <ArrowLeft size={16} color="#fff" />
+              </button>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+                  letterSpacing: '.15em', color: 'rgba(255,255,255,0.7)', fontFamily: BODY }}>
+                  {s?.label ?? 'Grupo'}
+                </div>
+                <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 20, color: '#fff' }}>
+                  {group.name}
+                </div>
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, fontFamily: BODY,
+                color: 'rgba(255,255,255,0.8)' }}>
+                {group.members.length} membros
+              </div>
+            </div>
+
+            {/* member avatars */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ display: 'flex' }}>
+                {group.members.slice(0, 5).map((m, i) => (
+                  <div key={m.id} style={{ marginLeft: i > 0 ? -8 : 0,
+                    width: 28, height: 28, borderRadius: 28,
+                    background: `hsl(${m.name.charCodeAt(0) * 37 % 360},50%,42%)`,
+                    border: `2px solid ${s?.color ?? C.ink}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: DISPLAY }}>
+                    {m.name[0].toUpperCase()}
+                  </div>
+                ))}
+              </div>
+              {group.members.length > 5 && (
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontFamily: BODY }}>
+                  +{group.members.length - 5}
+                </span>
+              )}
+              {group.isAdmin && (
+                <button onClick={() => router.push('/criar')}
+                  style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '6px 12px', borderRadius: 10, border: 'none',
+                    background: 'rgba(255,255,255,0.2)', cursor: 'pointer',
+                    color: '#fff', fontFamily: BODY, fontWeight: 700, fontSize: 12 }}>
+                  <Plus size={13} strokeWidth={3} /> Marcar jogo
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* messages */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {loading && (
+              <div style={{ textAlign: 'center', color: C.inkSoft, fontSize: 13, fontFamily: BODY, padding: '20px 0' }}>
+                Carregando…
+              </div>
+            )}
+            {!loading && messages.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '32px 20px' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>👋</div>
+                <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 16, color: C.ink, marginBottom: 6 }}>
+                  Ninguém falou ainda
+                </div>
+                <div style={{ fontFamily: BODY, fontSize: 13, color: C.inkSoft, lineHeight: 1.5 }}>
+                  Seja o primeiro a mandar uma mensagem!
+                </div>
+              </div>
+            )}
+            {messages.map(m => {
+              const isMe = m.userId === userId
+              return (
+                <div key={m.id} style={{ display: 'flex', flexDirection: 'column',
+                  alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+                  {!isMe && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft,
+                      fontFamily: BODY, marginBottom: 3, marginLeft: 4 }}>
+                      {m.name}
+                    </span>
+                  )}
+                  <div style={{ maxWidth: '78%', padding: '9px 13px', borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                    background: isMe ? C.ink : C.cream,
+                    border: isMe ? 'none' : `1.5px solid ${C.line}`,
+                    color: isMe ? C.cream : C.ink }}>
+                    <div style={{ fontFamily: BODY, fontSize: 14, lineHeight: 1.4 }}>{m.content}</div>
+                  </div>
+                  <span style={{ fontSize: 10, color: C.inkSoft, fontFamily: BODY, marginTop: 2,
+                    marginLeft: isMe ? 0 : 4, marginRight: isMe ? 4 : 0 }}>
+                    {timeAgo(m.createdAt)}
+                  </span>
+                </div>
+              )
+            })}
+            <div ref={msgEndRef} />
+          </div>
+
+          {/* input */}
+          <div style={{ padding: '10px 14px 12px', borderTop: `1.5px solid ${C.line}`,
+            display: 'flex', gap: 8, background: C.cream }}>
+            <input value={text} onChange={e => setText(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && send()}
+              placeholder="Mensagem…"
+              style={{ flex: 1, padding: '10px 14px', borderRadius: 14, border: `1.5px solid ${C.line}`,
+                background: C.card, fontFamily: BODY, fontSize: 14, color: C.ink, outline: 'none' }} />
+            <button onClick={send} disabled={!text.trim() || sending}
+              style={{ width: 42, height: 42, borderRadius: 13, border: 'none',
+                background: text.trim() ? C.ink : C.line, cursor: text.trim() ? 'pointer' : 'default',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Send size={16} color={text.trim() ? C.cream : C.inkSoft} />
+            </button>
+          </div>
+        </div>
+      </PhoneShell>
+    </PageWrapper>
   )
 }
 
-// ─── New Group Modal ──────────────────────────────────────────────────────────
+// ─── NewGroupModal ────────────────────────────────────────────────────────────
 function NewGroupModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState('')
-  const [sport, setSport] = useState<string>('')
+  const [sport, setSport] = useState('')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
   async function create() {
-    if (!name.trim()) { setErr('Digite um nome para o grupo'); return }
+    if (!name.trim()) { setErr('Digite um nome'); return }
     setSaving(true); setErr('')
     try {
       await apiPost('/community/groups', { name: name.trim(), sport: sport || null })
       onCreated()
-    } catch {
-      setErr('Erro ao criar grupo')
-    } finally { setSaving(false) }
+    } catch { setErr('Erro ao criar grupo') } finally { setSaving(false) }
   }
 
   return (
@@ -141,39 +258,31 @@ function NewGroupModal({ onClose, onCreated }: { onClose: () => void; onCreated:
           padding: '28px 24px 24px', boxShadow: '0 24px 60px rgba(0,0,0,0.22)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 18, color: C.ink }}>Novo grupo</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={20} color={C.inkSoft} />
           </button>
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-              letterSpacing: '.15em', color: C.inkSoft, fontFamily: BODY, marginBottom: 8 }}>
-              Nome do grupo
-            </div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.15em',
+              color: C.inkSoft, fontFamily: BODY, marginBottom: 8 }}>Nome</div>
             <input value={name} onChange={e => setName(e.target.value)}
-              placeholder="Ex: Galera do Padel"
-              onKeyDown={e => e.key === 'Enter' && create()}
+              placeholder="Ex: Galera do Padel" onKeyDown={e => e.key === 'Enter' && create()}
               style={{ width: '100%', padding: '12px 14px', borderRadius: 12, fontSize: 14,
                 fontFamily: BODY, border: `1.5px solid ${C.line}`, background: C.card,
                 color: C.ink, outline: 'none', boxSizing: 'border-box' }} />
           </div>
-
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-              letterSpacing: '.15em', color: C.inkSoft, fontFamily: BODY, marginBottom: 8 }}>
-              Esporte (opcional)
-            </div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.15em',
+              color: C.inkSoft, fontFamily: BODY, marginBottom: 8 }}>Esporte (opcional)</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {[['', 'Todos'], ...Object.entries(SPORTS_INFO).map(([k, v]) => [k, v.label])].map(([val, label]) => {
+              {[['', 'Geral'], ...Object.entries(SPORTS_INFO).map(([k, v]) => [k, v.label])].map(([val, label]) => {
                 const on = sport === val
                 return (
                   <button key={val} onClick={() => setSport(val)}
                     style={{ padding: '7px 14px', borderRadius: 999, cursor: 'pointer',
                       border: `1.5px solid ${on ? C.ink : C.line}`,
-                      background: on ? C.ink : C.card,
-                      color: on ? C.cream : C.inkSoft,
+                      background: on ? C.ink : C.card, color: on ? C.cream : C.inkSoft,
                       fontFamily: BODY, fontWeight: 700, fontSize: 13 }}>
                     {label}
                   </button>
@@ -181,17 +290,12 @@ function NewGroupModal({ onClose, onCreated }: { onClose: () => void; onCreated:
               })}
             </div>
           </div>
-
-          {err && (
-            <div style={{ fontSize: 13, color: C.coral, fontFamily: BODY }}>{err}</div>
-          )}
-
+          {err && <div style={{ fontSize: 13, color: C.coral, fontFamily: BODY }}>{err}</div>}
           <button onClick={create} disabled={saving || !name.trim()}
             style={{ width: '100%', padding: '14px', borderRadius: 16, border: 'none',
-              background: !name.trim() ? C.line : C.lime,
-              color: !name.trim() ? C.inkSoft : C.ink,
+              background: !name.trim() ? C.line : C.lime, color: !name.trim() ? C.inkSoft : C.ink,
               fontFamily: DISPLAY, fontWeight: 800, fontSize: 15,
-              cursor: !name.trim() ? 'default' : 'pointer', marginTop: 4 }}>
+              cursor: !name.trim() ? 'default' : 'pointer' }}>
             {saving ? 'Criando…' : 'Criar grupo'}
           </button>
         </div>
@@ -204,21 +308,22 @@ function NewGroupModal({ onClose, onCreated }: { onClose: () => void; onCreated:
 export default function ComunidadePage() {
   const router = useRouter()
   const { user } = useAuth()
-  const [tab, setTab] = useState<'grupos' | 'favoritos'>('grupos')
+  const [tab, setTab] = useState<'grupos' | 'conexoes'>('grupos')
   const [groups, setGroups] = useState<Group[]>([])
-  const [favorites, setFavorites] = useState<FavoritePlayer[]>([])
+  const [favData, setFavData] = useState<FavoritesData>({ recentPlayers: [], favorites: [] })
   const [loading, setLoading] = useState(true)
   const [newGroupOpen, setNewGroupOpen] = useState(false)
+  const [openGroup, setOpenGroup] = useState<GroupDetail | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const [g, f] = await Promise.all([
         apiGet<Group[]>('/community/groups').catch(() => [] as Group[]),
-        apiGet<FavoritePlayer[]>('/community/favorites').catch(() => [] as FavoritePlayer[]),
+        apiGet<FavoritesData>('/community/favorites').catch(() => ({ recentPlayers: [], favorites: [] })),
       ])
       setGroups(g)
-      setFavorites(f)
+      setFavData(f)
     } finally { setLoading(false) }
   }, [])
 
@@ -227,15 +332,30 @@ export default function ComunidadePage() {
     load()
   }, [user, router, load])
 
+  async function openGroupDetail(id: string) {
+    const detail = await apiGet<GroupDetail>(`/community/groups/${id}`)
+    setOpenGroup(detail)
+  }
+
+  async function toggleFavorite(playerId: string, isFav: boolean) {
+    if (isFav) {
+      await apiPut(`/community/favorites/${playerId}`, {}).catch(() => {})
+      // use delete via apiPost workaround — we'll call delete directly
+    } else {
+      await apiPost(`/community/favorites/${playerId}`).catch(() => {})
+    }
+    load()
+  }
+
   if (!user) return null
+  if (openGroup) return <GroupChat group={openGroup} userId={user.id} onBack={() => { setOpenGroup(null); load() }} />
+
+  const { recentPlayers, favorites } = favData
 
   return (
     <PageWrapper>
       {newGroupOpen && (
-        <NewGroupModal
-          onClose={() => setNewGroupOpen(false)}
-          onCreated={() => { setNewGroupOpen(false); load() }}
-        />
+        <NewGroupModal onClose={() => setNewGroupOpen(false)} onCreated={() => { setNewGroupOpen(false); load() }} />
       )}
       <PhoneShell bottomBar={<NavBar />}>
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -247,33 +367,27 @@ export default function ComunidadePage() {
               {user.name.split(' ')[0]}
             </div>
             <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 26,
-              color: C.ink, letterSpacing: '-.02em', lineHeight: 1.1, marginTop: 2 }}>
+              color: C.ink, letterSpacing: '-.02em', marginTop: 2 }}>
               Comunidade
             </div>
-            <div style={{ fontSize: 13, color: C.inkSoft, fontFamily: BODY, marginTop: 4 }}>
+            <div style={{ fontSize: 13, color: C.inkSoft, fontFamily: BODY, marginTop: 3 }}>
               Conectar pessoas é o nosso propósito
             </div>
 
             {/* tabs */}
             <div style={{ display: 'flex', gap: 8, marginTop: 16, marginBottom: 4 }}>
-              {([['grupos', 'Grupos', groups.length], ['favoritos', 'Favoritos', favorites.length]] as const).map(([t, label, count]) => {
+              {([['grupos', 'Grupos', groups.length], ['conexoes', 'Conexões', recentPlayers.length + favorites.length]] as const).map(([t, label, count]) => {
                 const on = tab === t
                 return (
-                  <button key={t} onClick={() => setTab(t)} style={{
-                    padding: '8px 16px', borderRadius: 999, border: 'none',
-                    background: on ? C.ink : C.card,
-                    color: on ? C.cream : C.inkSoft,
+                  <button key={t} onClick={() => setTab(t)} style={{ padding: '8px 16px', borderRadius: 999,
+                    border: 'none', background: on ? C.ink : C.card, color: on ? C.cream : C.inkSoft,
                     fontFamily: BODY, fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 6,
-                  }}>
+                    display: 'flex', alignItems: 'center', gap: 6 }}>
                     {label}
                     {count > 0 && (
                       <span style={{ fontSize: 11, fontWeight: 800,
-                        background: on ? `${C.lime}44` : C.line,
-                        color: on ? C.lime : C.inkSoft,
-                        padding: '1px 6px', borderRadius: 999 }}>
-                        {count}
-                      </span>
+                        background: on ? `${C.lime}44` : C.line, color: on ? C.lime : C.inkSoft,
+                        padding: '1px 6px', borderRadius: 999 }}>{count}</span>
                     )}
                   </button>
                 )
@@ -282,23 +396,16 @@ export default function ComunidadePage() {
           </div>
 
           {/* content */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 8px',
-            display: 'flex', flexDirection: 'column', gap: 10 }}>
-
-            {loading && (
-              <div style={{ padding: '40px 0', textAlign: 'center',
-                color: C.inkSoft, fontSize: 13, fontFamily: BODY }}>
-                Carregando…
-              </div>
-            )}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 8px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {loading && <div style={{ padding: '40px 0', textAlign: 'center', color: C.inkSoft, fontSize: 13, fontFamily: BODY }}>Carregando…</div>}
 
             {/* ── GRUPOS ── */}
             {!loading && tab === 'grupos' && (
               <>
                 <button onClick={() => setNewGroupOpen(true)}
                   style={{ width: '100%', padding: '14px 16px', borderRadius: 18,
-                    border: `1.5px dashed ${C.line}`, background: 'transparent',
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    border: `1.5px dashed ${C.line}`, background: 'transparent', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 12, background: `${C.lime}44`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Plus size={18} strokeWidth={2.5} color={C.ink} />
@@ -309,84 +416,160 @@ export default function ComunidadePage() {
                 </button>
 
                 {groups.length === 0 && (
-                  <EmptyCard
-                    icon={<Users size={22} color={C.inkSoft} strokeWidth={1.8} />}
-                    title="Nenhum grupo ainda"
-                    subtitle="Crie um grupo para reunir seus parceiros de jogo e organizar partidas juntos"
-                  />
+                  <div style={{ background: C.cream, borderRadius: 20, border: `1.5px solid ${C.line}`,
+                    padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    textAlign: 'center', gap: 10 }}>
+                    <div style={{ fontSize: 32 }}>👥</div>
+                    <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 15, color: C.ink }}>Nenhum grupo ainda</div>
+                    <div style={{ fontFamily: BODY, fontSize: 13, color: C.inkSoft, lineHeight: 1.5 }}>
+                      Crie um grupo para conversar e marcar jogos com seus parceiros
+                    </div>
+                  </div>
                 )}
 
-                {groups.map(g => (
-                  <button key={g.id}
-                    style={{ width: '100%', textAlign: 'left', background: C.cream,
-                      border: `1.5px solid ${C.line}`, borderRadius: 20, padding: '14px 16px',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 14, flexShrink: 0,
-                      background: g.sport ? `${SPORTS_INFO[g.sport]?.color ?? '#888'}18` : `${C.lime}33`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Users size={20} color={g.sport ? (SPORTS_INFO[g.sport]?.color ?? C.inkSoft) : C.ink} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 14, color: C.ink }}>
-                        {g.name}
-                      </div>
-                      <div style={{ fontFamily: BODY, fontSize: 12, color: C.inkSoft, marginTop: 2 }}>
-                        {g.memberCount} {g.memberCount === 1 ? 'membro' : 'membros'}
-                        {g.sport ? ` · ${SPORTS_INFO[g.sport]?.label ?? g.sport}` : ''}
-                      </div>
-                    </div>
-                    {g.isAdmin && (
-                      <span style={{ fontSize: 10, fontWeight: 700, fontFamily: BODY,
-                        background: `${C.lime}44`, color: C.ink,
-                        padding: '3px 8px', borderRadius: 999 }}>Admin</span>
-                    )}
-                    <ChevronRight size={16} color={C.inkSoft} />
-                  </button>
-                ))}
-              </>
-            )}
-
-            {/* ── FAVORITOS ── */}
-            {!loading && tab === 'favoritos' && (
-              <>
-                {favorites.length === 0 && (
-                  <EmptyCard
-                    icon={<Star size={22} color={C.inkSoft} strokeWidth={1.8} />}
-                    title="Nenhum favorito ainda"
-                    subtitle="Adicione jogadores que você quer ter sempre por perto para organizar jogos com facilidade"
-                  />
-                )}
-
-                {favorites.map(f => {
-                  const s = SPORTS_INFO[f.sport] ?? { label: f.sport, color: '#888' }
-                  const detail = f.category ? `Cat. ${f.category}` : f.skillLevel ? f.skillLevel : ''
+                {groups.map(g => {
+                  const s = g.sport ? SPORTS_INFO[g.sport] : null
                   return (
-                    <div key={f.id}
-                      style={{ background: C.cream, border: `1.5px solid ${C.line}`,
-                        borderRadius: 20, padding: '14px 16px',
-                        display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <Avatar name={f.name} size={44} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 14, color: C.ink }}>
-                          {f.name}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, fontFamily: BODY,
-                            color: s.color, background: `${s.color}18`,
-                            padding: '2px 7px', borderRadius: 6 }}>
-                            {s.label}
+                    <button key={g.id} onClick={() => openGroupDetail(g.id)}
+                      style={{ width: '100%', textAlign: 'left', background: C.cream,
+                        border: `1.5px solid ${C.line}`, borderRadius: 20, padding: '14px 16px',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 46, height: 46, borderRadius: 15, flexShrink: 0,
+                        background: s ? `${s.color}18` : `${C.lime}33`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Users size={20} color={s ? s.color : C.ink} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                          <span style={{ fontFamily: BODY, fontWeight: 700, fontSize: 14, color: C.ink }}>
+                            {g.name}
                           </span>
-                          {detail && (
-                            <span style={{ fontSize: 11, color: C.inkSoft, fontFamily: BODY }}>
-                              {detail}
+                          {g.isAdmin && (
+                            <span style={{ fontSize: 10, fontWeight: 700, fontFamily: BODY,
+                              background: `${C.lime}44`, color: C.ink, padding: '2px 7px', borderRadius: 999 }}>
+                              Admin
                             </span>
                           )}
                         </div>
+                        <div style={{ fontFamily: BODY, fontSize: 12, color: C.inkSoft,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {g.lastMessage ?? `${g.memberCount} ${g.memberCount === 1 ? 'membro' : 'membros'}${s ? ` · ${s.label}` : ''}`}
+                        </div>
+                        {g.lastMessageAt && (
+                          <div style={{ fontFamily: BODY, fontSize: 11, color: C.inkSoft, marginTop: 2 }}>
+                            {timeAgo(g.lastMessageAt)}
+                          </div>
+                        )}
                       </div>
-                      <Star size={18} color={C.coral} fill={C.coral} />
-                    </div>
+                      <ChevronRight size={16} color={C.inkSoft} />
+                    </button>
                   )
                 })}
+              </>
+            )}
+
+            {/* ── CONEXÕES ── */}
+            {!loading && tab === 'conexoes' && (
+              <>
+                {/* Favoritos */}
+                {favorites.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+                      letterSpacing: '.15em', color: C.inkSoft, fontFamily: BODY, padding: '4px 4px 0' }}>
+                      ⭐ Favoritos
+                    </div>
+                    {favorites.map(f => {
+                      const s = f.sport ? SPORTS_INFO[f.sport] : null
+                      return (
+                        <div key={f.id} style={{ background: C.cream, border: `1.5px solid ${C.line}`,
+                          borderRadius: 20, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <Avatar name={f.name} size={44} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 14, color: C.ink }}>{f.name}</div>
+                            {s && (
+                              <span style={{ fontSize: 11, fontWeight: 700, fontFamily: BODY,
+                                color: s.color, background: `${s.color}18`, padding: '2px 7px', borderRadius: 6 }}>
+                                {s.label}{f.category ? ` · Cat. ${f.category}` : ''}
+                              </span>
+                            )}
+                          </div>
+                          <button onClick={async () => {
+                            await fetch(`http://localhost:3001/community/favorites/${f.id}`, {
+                              method: 'DELETE', headers: { Authorization: `Bearer ${localStorage.getItem('racket_access_token')}` }
+                            }); load()
+                          }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6 }}>
+                            <Star size={18} color={C.coral} fill={C.coral} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
+
+                {/* Jogadores recentes */}
+                {recentPlayers.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+                      letterSpacing: '.15em', color: C.inkSoft, fontFamily: BODY, padding: '4px 4px 0', marginTop: 4 }}>
+                      🎾 Com quem você jogou
+                    </div>
+                    {recentPlayers.map(p => {
+                      const s = p.sport ? SPORTS_INFO[p.sport] : null
+                      return (
+                        <div key={p.id} style={{ background: C.cream, border: `1.5px solid ${C.line}`,
+                          borderRadius: 20, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <Avatar name={p.name} size={44} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 14, color: C.ink }}>{p.name}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                              {s && (
+                                <span style={{ fontSize: 11, fontWeight: 700, fontFamily: BODY,
+                                  color: s.color, background: `${s.color}18`, padding: '2px 7px', borderRadius: 6 }}>
+                                  {s.label}{p.category ? ` · Cat. ${p.category}` : ''}
+                                </span>
+                              )}
+                              <span style={{ fontSize: 11, color: C.inkSoft, fontFamily: BODY }}>
+                                {timeAgo(p.lastGameAt)}
+                              </span>
+                            </div>
+                          </div>
+                          <button onClick={async () => {
+                            if (p.isFavorite) {
+                              await fetch(`http://localhost:3001/community/favorites/${p.id}`, {
+                                method: 'DELETE', headers: { Authorization: `Bearer ${localStorage.getItem('racket_access_token')}` }
+                              })
+                            } else {
+                              await apiPost(`/community/favorites/${p.id}`)
+                            }
+                            load()
+                          }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6 }}>
+                            <Star size={18} color={C.coral} fill={p.isFavorite ? C.coral : 'transparent'} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
+
+                {recentPlayers.length === 0 && favorites.length === 0 && (
+                  <div style={{ background: C.cream, borderRadius: 20, border: `1.5px solid ${C.line}`,
+                    padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    textAlign: 'center', gap: 10 }}>
+                    <div style={{ fontSize: 32 }}>🤝</div>
+                    <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 15, color: C.ink }}>
+                      Nenhuma conexão ainda
+                    </div>
+                    <div style={{ fontFamily: BODY, fontSize: 13, color: C.inkSoft, lineHeight: 1.5, maxWidth: 220 }}>
+                      Participe de jogos para conectar com outros jogadores e criar vínculos
+                    </div>
+                    <button onClick={() => router.push('/descobrir')}
+                      style={{ marginTop: 4, padding: '10px 20px', borderRadius: 999, border: 'none',
+                        background: C.lime, color: C.ink, fontFamily: DISPLAY, fontWeight: 800,
+                        fontSize: 13, cursor: 'pointer' }}>
+                      Descobrir jogos
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>
