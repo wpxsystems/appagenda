@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { apiGet, apiPost } from '@/lib/api'
 import { PageWrapper, PhoneShell, C, DISPLAY, BODY } from '@/components/PhoneShell'
-import { MapPin, Bell, ChevronRight, Clock, Plus, Compass, User, Send, MessageCircle, Star, CalendarDays } from 'lucide-react'
+import { MapPin, Bell, ChevronRight, Clock, Plus, Compass, User, Send, MessageCircle, Star, CalendarDays, X } from 'lucide-react'
 
 // ─── types ───────────────────────────────────────────────────────────────────
 const SPORTS_INFO: Record<string, { label: string; color: string }> = {
@@ -516,10 +516,11 @@ export default function DescobrirPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
-  const [games, setGames]       = useState<Game[]>([])
-  const [filter, setFilter]     = useState('Todos')
-  const [tab, setTab]           = useState('descobrir')
-  const [selected, setSelected] = useState<GameDetail | null>(null)
+  const [games, setGames]           = useState<Game[]>([])
+  const [filter, setFilter]         = useState('Todos')
+  const [tab, setTab]               = useState('descobrir')
+  const [selected, setSelected]     = useState<GameDetail | null>(null)
+  const [notifOpen, setNotifOpen]   = useState(false)
 
   useEffect(() => {
     if (!user) { router.push('/login'); return }
@@ -554,6 +555,45 @@ export default function DescobrirPage() {
 
   return (
     <PageWrapper>
+      {notifOpen && (
+        <div style={{ position:'fixed', inset:0, zIndex:999, display:'flex', alignItems:'flex-end',
+          justifyContent:'center', background:'rgba(26,24,19,0.5)' }}
+          onClick={() => setNotifOpen(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ width:'100%', maxWidth:430, background:C.cream, borderRadius:'24px 24px 0 0',
+              padding:'12px 0 40px', boxShadow:'0 -8px 40px rgba(0,0,0,0.18)',
+              maxHeight:'75vh', display:'flex', flexDirection:'column' }}>
+            {/* handle */}
+            <div style={{ width:40, height:4, borderRadius:4, background:C.line, margin:'0 auto 4px' }} />
+            {/* header */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+              padding:'12px 20px 16px' }}>
+              <span style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:18, color:C.ink }}>
+                Notificações
+              </span>
+              <button onClick={() => setNotifOpen(false)}
+                style={{ background:'none', border:'none', cursor:'pointer', padding:4 }}>
+                <X size={20} color={C.inkSoft} />
+              </button>
+            </div>
+            {/* empty state */}
+            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
+              justifyContent:'center', padding:'24px 24px 40px', gap:12 }}>
+              <div style={{ width:56, height:56, borderRadius:18, background:C.card,
+                display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <Bell size={24} color={C.inkSoft} strokeWidth={1.8} />
+              </div>
+              <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:16, color:C.ink }}>
+                Nenhuma notificação
+              </div>
+              <div style={{ fontFamily:BODY, fontSize:13, color:C.inkSoft, textAlign:'center',
+                lineHeight:1.5, maxWidth:220 }}>
+                Quando alguém entrar no seu jogo ou te mencionar, você verá aqui
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <PhoneShell bottomBar={<NavBar tab={tab} setTab={setTab} />}>
         <div style={{ paddingBottom: 16 }}>
 
@@ -563,11 +603,12 @@ export default function DescobrirPage() {
               <MapPin size={14} strokeWidth={2.6} />
               <span style={{ fontSize:13, fontWeight:600, fontFamily:BODY }}>Joinville, SC</span>
             </div>
-            <div style={{ position:'relative' }}>
+            <button onClick={() => setNotifOpen(true)}
+              style={{ position:'relative', background:'none', border:'none', cursor:'pointer', padding:4 }}>
               <Bell size={20} strokeWidth={2.4} color={C.ink} />
-              <div style={{ position:'absolute', top:-2, right:-2, width:8, height:8,
+              <div style={{ position:'absolute', top:2, right:2, width:8, height:8,
                 borderRadius:8, background:C.coral, border:`2px solid ${C.cream}` }} />
-            </div>
+            </button>
           </div>
 
           {/* title */}
