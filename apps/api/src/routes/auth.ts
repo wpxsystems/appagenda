@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { randomBytes } from 'crypto'
 import { z } from 'zod'
-import { loginSchema, sportProfileSchema, Gender } from '@racket-app/shared'
+import { registerSchema, loginSchema, sportProfileSchema, Gender } from '@racket-app/shared'
 import { db, users, eq } from '@racket-app/db'
 import {
   registerUser,
@@ -11,12 +11,7 @@ import {
   revokeRefreshToken,
 } from '../services/auth.service.js'
 
-const registerBodySchema = z.object({
-  name: z.string().min(2).max(100),
-  email: z.string().email(),
-  password: z.string().min(8).max(100),
-  gender: z.enum(Gender),
-  cityId: z.string().uuid(),
+const registerBodySchema = registerSchema.extend({
   sportProfiles: z.array(sportProfileSchema).min(1),
 })
 
