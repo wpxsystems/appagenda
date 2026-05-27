@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { randomBytes } from 'crypto'
 import { z } from 'zod'
+import type { RegisterInput } from '@racket-app/shared'
 import { registerSchema, loginSchema, sportProfileSchema, Gender } from '@racket-app/shared'
 import { db, users, eq } from '@racket-app/db'
 import {
@@ -31,7 +32,7 @@ export async function authRoutes(app: FastifyInstance) {
     const { sportProfiles, ...account } = parsed.data
 
     try {
-      const user = await registerUser(account, sportProfiles)
+      const user = await registerUser(account as RegisterInput, sportProfiles)
       const accessToken = app.jwt.sign(
         { sub: user.id, role: user.role },
         { expiresIn: ACCESS_TOKEN_TTL },
