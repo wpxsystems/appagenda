@@ -29,15 +29,23 @@ async function buildApp() {
   return app
 }
 
-async function start() {
-  const app = await buildApp()
-  try {
-    const port = Number(process.env['PORT'] ?? 3001)
-    await app.listen({ port, host: '0.0.0.0' })
-  } catch (err) {
-    app.log.error(err)
-    process.exit(1)
+// Serverless handler for Vercel
+let _app: Awaited<ReturnType<typeof buildApp>> | null = null
+export default async function handler(req: import('http').IncomingMessage, res: import('http').ServerResponse) {
+  if (!_app) {
+    _app = await buildApp()
+    await _app.ready()
   }
+  _app.server.emit('request', req, res)
 }
 
-start()
+// Local dev server
+if (!process.env['VERCEL']) {
+  buildApp().then(app => {
+    const port = Number(process.env['PORT'] ?? 3001)
+    app.listen({ port, host: '0.0.0.0' }).catch(err => {
+      app.log.error(err)
+      process.exit(1)
+    })
+  })
+}
