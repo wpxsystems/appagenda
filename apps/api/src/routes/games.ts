@@ -56,6 +56,7 @@ export async function gamesRoutes(app: FastifyInstance) {
       RETURNING id, sport, scheduled_at, duration_minutes, vacancies_total, status, notes
     `
     const game = rows[0]
+    if (!game) return reply.status(500).send({ error: 'Insert failed' })
     await pg`INSERT INTO game_participants (game_id, user_id) VALUES (${game['id']}, ${userId}) ON CONFLICT DO NOTHING`
     return reply.status(201).send(game)
   })

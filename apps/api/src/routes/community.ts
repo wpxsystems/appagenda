@@ -36,6 +36,7 @@ export async function communityRoutes(app: FastifyInstance) {
       RETURNING id, name, sport
     `
     const group = rows[0]
+    if (!group) return reply.status(500).send({ error: 'Insert failed' })
     await pg`INSERT INTO community_group_members (group_id, user_id, role) VALUES (${group['id']}, ${userId}, 'admin')`
     return reply.status(201).send({ id: group['id'], name: group['name'], sport: group['sport'], memberCount: 1, isAdmin: true })
   })

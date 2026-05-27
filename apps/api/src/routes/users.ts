@@ -117,7 +117,9 @@ export async function usersRoutes(app: FastifyInstance) {
       ON CONFLICT (user_id) DO UPDATE SET city_id = ${cityId}, updated_at = now()
     `
     const rows = await pg`SELECT c.id, c.name, c.state FROM cities c WHERE c.id = ${cityId} LIMIT 1`
-    return reply.send({ cityId: rows[0]['id'], name: rows[0]['name'], state: rows[0]['state'] })
+    const city = rows[0]
+    if (!city) return reply.status(404).send({ error: 'City not found' })
+    return reply.send({ cityId: city['id'], name: city['name'], state: city['state'] })
   })
 
   // Add a new sport profile
@@ -142,6 +144,7 @@ export async function usersRoutes(app: FastifyInstance) {
     }
     const rows = await pg`SELECT id, sport, category, side_preference, skill_level, play_format, is_active FROM player_sport_profiles WHERE user_id = ${userId} AND sport = ${sport} LIMIT 1`
     const r = rows[0]
+    if (!r) return reply.status(500).send({ error: 'Insert failed' })
     return reply.status(201).send({
       id: r['id'], sport: r['sport'], category: r['category'],
       sidePreference: r['side_preference'], skillLevel: r['skill_level'],

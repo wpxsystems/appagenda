@@ -66,6 +66,7 @@ describe('POST /auth/register', () => {
       avatarUrl: null,
       pushToken: null,
       notificationsEnabled: true,
+      availabilityJson: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -118,6 +119,7 @@ describe('POST /auth/login', () => {
       avatarUrl: null,
       pushToken: null,
       notificationsEnabled: true,
+      availabilityJson: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     })
