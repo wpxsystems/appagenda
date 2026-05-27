@@ -47,6 +47,7 @@ export const users = pgTable('users', {
   role: userRoleEnum('role').notNull().default('player'),
   pushToken: text('push_token'),
   notificationsEnabled: boolean('notifications_enabled').notNull().default(true),
+  availabilityJson: text('availability_json'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

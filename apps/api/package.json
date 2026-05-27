@@ -17,6 +17,7 @@
     "@fastify/websocket": "^10.0.0",
     "@racket-app/db": "workspace:*",
     "@racket-app/shared": "workspace:*",
+    "dotenv": "^17.4.2",
     "fastify": "^4.28.0",
     "fastify-plugin": "^5.1.0",
     "zod": "^3.23.0"

@@ -2,11 +2,19 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as schema from './schema.js'
 
+let _pgClient: ReturnType<typeof postgres> | undefined
+
+export function getPgClient() {
+  if (!_pgClient) {
+    const connectionString = process.env['DATABASE_URL']
+    if (!connectionString) throw new Error('DATABASE_URL is required')
+    _pgClient = postgres(connectionString)
+  }
+  return _pgClient
+}
+
 function createClient() {
-  const connectionString = process.env['DATABASE_URL']
-  if (!connectionString) throw new Error('DATABASE_URL is required')
-  const queryClient = postgres(connectionString)
-  return drizzle(queryClient, { schema })
+  return drizzle(getPgClient(), { schema })
 }
 
 let _db: ReturnType<typeof createClient> | undefined

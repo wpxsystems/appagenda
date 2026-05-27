@@ -1,3 +1,7 @@
+@import "tailwindcss";
+@source "../app/**/*.{ts,tsx}";
+@source "../components/**/*.{ts,tsx}";
+
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700&family=Archivo:wght@400;500;600&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -19,8 +23,10 @@
 body {
   font-family: var(--font-body);
   color: var(--color-text-primary);
-  background: var(--color-background);
+  background: transparent;
   line-height: 1.5;
+  margin: 0;
+  padding: 0;
 }
 
 h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: 700; }

@@ -43,7 +43,7 @@ export async function authRoutes(app: FastifyInstance) {
       )
       const refreshToken = randomBytes(40).toString('hex')
       await saveRefreshToken(user.id, refreshToken, refreshExpiry())
-      return reply.status(201).send({ accessToken, refreshToken })
+      return reply.status(201).send({ accessToken, refreshToken, user: { id: user.id, name: user.name, email: user.email, role: user.role } })
     } catch (err: unknown) {
       const e = err as { code?: string }
       if (e.code === 'EMAIL_TAKEN') return reply.status(409).send({ error: 'Email already in use' })
@@ -64,7 +64,7 @@ export async function authRoutes(app: FastifyInstance) {
       )
       const refreshToken = randomBytes(40).toString('hex')
       await saveRefreshToken(user.id, refreshToken, refreshExpiry())
-      return reply.send({ accessToken, refreshToken })
+      return reply.send({ accessToken, refreshToken, user: { id: user.id, name: user.name, email: user.email, role: user.role } })
     } catch (err: unknown) {
       const e = err as { code?: string }
       if (e.code === 'INVALID_CREDENTIALS')

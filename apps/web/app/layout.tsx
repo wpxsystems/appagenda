@@ -1,15 +1,18 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { AuthProvider } from '@/lib/auth-context'
 
 export const metadata: Metadata = {
-  title: 'Racket App — Admin',
-  description: 'Administração do App de Esportes de Raquete',
+  title: 'Racket App',
+  description: 'Padel · Beach Tennis · Tênis',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   )
 }
