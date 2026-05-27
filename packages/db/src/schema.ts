@@ -207,3 +207,24 @@ export const waitlistEntries = pgTable('waitlist_entries', {
   sport: sportEnum('sport'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+export const communityGroups = pgTable('community_groups', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  name: text('name').notNull(),
+  sport: sportEnum('sport'),
+  createdBy: uuid('created_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const communityGroupMembers = pgTable('community_group_members', {
+  groupId: uuid('group_id').notNull().references(() => communityGroups.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: text('role').notNull().default('member'),
+  joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const favoritePlayers = pgTable('favorite_players', {
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  favoriteUserId: uuid('favorite_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
