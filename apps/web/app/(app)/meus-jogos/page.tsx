@@ -79,7 +79,8 @@ function NavBar() {
 
 function GameCard({ g, onClick }: { g: MyGame; onClick: () => void }) {
   const s       = SPORTS[g.sport] ?? { label: g.sport, color:'#888' }
-  const isPast  = new Date(g.scheduledAt) < new Date()
+  const isCancelled = g.status === 'cancelled'
+  const isPast  = isCancelled || new Date(g.scheduledAt) < new Date()
   const isFull  = g.openSpots <= 0
 
   return (
@@ -113,7 +114,7 @@ function GameCard({ g, onClick }: { g: MyGame; onClick: () => void }) {
           </div>
           <span style={{ fontSize:11, fontWeight:700, fontFamily:BODY,
             color: isPast ? C.inkSoft : (isFull ? '#1A7A45' : C.inkSoft) }}>
-            {isPast ? 'Encerrado' : isFull ? 'Completo' : `${g.openSpots} vaga${g.openSpots>1?'s':''}`}
+            {isCancelled ? 'Cancelado' : isPast ? 'Encerrado' : isFull ? 'Completo' : `${g.openSpots} vaga${g.openSpots>1?'s':''}`}
           </span>
         </div>
 
@@ -196,8 +197,8 @@ export default function MeusJogosPage() {
   if (!user) return null
 
   const now      = new Date()
-  const proximos = myGames.filter(g => new Date(g.scheduledAt) >= now)
-  const passados = myGames.filter(g => new Date(g.scheduledAt) <  now).reverse()
+  const proximos = myGames.filter(g => g.status !== 'cancelled' && new Date(g.scheduledAt) >= now)
+  const passados = myGames.filter(g => g.status === 'cancelled' || new Date(g.scheduledAt) < now).reverse()
   const list     = tab === 'proximos' ? proximos : passados
 
   return (
