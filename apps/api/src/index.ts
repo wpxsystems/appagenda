@@ -9,6 +9,7 @@ import { citiesRoutes } from './routes/cities.js'
 import { gamesRoutes } from './routes/games.js'
 import { usersRoutes } from './routes/users.js'
 import { communityRoutes } from './routes/community.js'
+import { notificationsRoutes } from './routes/notifications.js'
 
 async function buildApp() {
   const app = Fastify({ logger: true })
@@ -21,6 +22,7 @@ async function buildApp() {
   await app.register(gamesRoutes)
   await app.register(usersRoutes)
   await app.register(communityRoutes)
+  await app.register(notificationsRoutes)
 
   app.get('/health', async () => ({ status: 'ok' }))
 

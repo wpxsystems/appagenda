@@ -200,6 +200,17 @@ export const pushNotificationsLog = pgTable('push_notifications_log', {
   error: text('error'),
 })
 
+export const notifications = pgTable('notifications', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(), // 'game_cancelled' | 'player_joined' | etc
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  gameId: uuid('game_id').references(() => games.id, { onDelete: 'set null' }),
+  read: boolean('read').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 export const waitlistEntries = pgTable('waitlist_entries', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   email: text('email').notNull(),

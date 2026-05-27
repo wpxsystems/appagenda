@@ -595,6 +595,7 @@ function GameDetailView({ game, userId, onBack }: {
 
 // ─── main ────────────────────────────────────────────────────────────────────
 interface City { id: string; name: string; state: string }
+interface Notification { id: string; type: string; title: string; body: string; gameId: string | null; read: boolean; createdAt: string }
 
 export default function DescobrirPage() {
   const router = useRouter()
@@ -604,8 +605,9 @@ export default function DescobrirPage() {
   const [filter, setFilter]         = useState('Todos')
   const [tab, setTab]               = useState('descobrir')
   const [selected, setSelected]     = useState<GameDetail | null>(null)
-  const [notifOpen, setNotifOpen]   = useState(false)
-  const [cityOpen, setCityOpen]     = useState(false)
+  const [notifOpen, setNotifOpen]         = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [cityOpen, setCityOpen]           = useState(false)
   const [cities, setCities]         = useState<City[]>([])
   const [currentCity, setCurrentCity] = useState<City | null>(null)
   const [citySearch, setCitySearch] = useState('')
@@ -626,6 +628,9 @@ export default function DescobrirPage() {
 
     // load all cities for picker
     apiGet<City[]>('/cities').then(setCities).catch(() => {})
+
+    // load notifications
+    apiGet<Notification[]>('/notifications').then(setNotifications).catch(() => {})
 
     const gameId = searchParams.get('gameId')
     if (gameId) {
@@ -669,27 +674,68 @@ export default function DescobrirPage() {
           justifyContent:'center', background:'rgba(26,24,19,0.55)', padding:'0 24px' }}
           onClick={() => setNotifOpen(false)}>
           <div onClick={e => e.stopPropagation()}
-            style={{ width:'100%', maxWidth:340, background:C.cream, borderRadius:28,
-              padding:'28px 24px 24px', boxShadow:'0 24px 60px rgba(0,0,0,0.22)',
-              display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center' }}>
-            <div style={{ width:48, height:48, borderRadius:16, background:C.card,
-              display:'flex', alignItems:'center', justifyContent:'center', marginBottom:16 }}>
-              <Bell size={22} color={C.inkSoft} strokeWidth={1.8} />
+            style={{ width:'100%', maxWidth:360, background:C.cream, borderRadius:28,
+              padding:'24px 0 8px', boxShadow:'0 24px 60px rgba(0,0,0,0.22)',
+              display:'flex', flexDirection:'column', maxHeight:'70vh' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+              padding:'0 20px 16px' }}>
+              <span style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:18, color:C.ink }}>
+                Notificações
+              </span>
+              <button onClick={() => setNotifOpen(false)}
+                style={{ background:'none', border:'none', cursor:'pointer', padding:4 }}>
+                <X size={20} color={C.inkSoft} />
+              </button>
             </div>
-            <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:18, color:C.ink, marginBottom:8 }}>
-              Nenhuma notificação
+
+            <div style={{ flex:1, overflowY:'auto', padding:'0 12px 12px' }}>
+              {notifications.length === 0 ? (
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
+                  textAlign:'center', padding:'24px 12px 32px', gap:12 }}>
+                  <div style={{ width:48, height:48, borderRadius:16, background:C.card,
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <Bell size={22} color={C.inkSoft} strokeWidth={1.8} />
+                  </div>
+                  <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:16, color:C.ink }}>
+                    Nenhuma notificação
+                  </div>
+                  <div style={{ fontFamily:BODY, fontSize:13, color:C.inkSoft, lineHeight:1.5, maxWidth:200 }}>
+                    Quando alguém entrar no seu jogo você será avisado aqui
+                  </div>
+                </div>
+              ) : notifications.map(n => (
+                <div key={n.id}
+                  style={{ padding:'12px', borderRadius:16, marginBottom:4,
+                    background: n.read ? 'transparent' : `${C.coral}0D`,
+                    border: n.read ? 'none' : `1px solid ${C.coral}22` }}>
+                  <div style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                    <div style={{ width:36, height:36, borderRadius:12, flexShrink:0,
+                      background: n.type === 'game_cancelled' ? `${C.coral}18` : `${C.lime}33`,
+                      display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>
+                      {n.type === 'game_cancelled' ? '❌' : '🎾'}
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:BODY, fontWeight:700, fontSize:13, color:C.ink }}>
+                        {n.title}
+                      </div>
+                      <div style={{ fontFamily:BODY, fontSize:12, color:C.inkSoft,
+                        marginTop:2, lineHeight:1.4 }}>
+                        {n.body}
+                      </div>
+                      <div style={{ fontFamily:BODY, fontSize:11, color:C.inkSoft, marginTop:4 }}>
+                        {new Date(n.createdAt).toLocaleDateString('pt-BR', {
+                          day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
+                        })}
+                      </div>
+                    </div>
+                    {!n.read && (
+                      <div style={{ width:8, height:8, borderRadius:8,
+                        background:C.coral, flexShrink:0, marginTop:4 }} />
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-            <div style={{ fontFamily:BODY, fontSize:13, color:C.inkSoft, lineHeight:1.6,
-              marginBottom:24, maxWidth:220 }}>
-              Quando alguém entrar no seu jogo você será avisado aqui
-            </div>
-            <button onClick={() => setNotifOpen(false)}
-              style={{ width:'100%', padding:'13px', borderRadius:16,
-                border:`1.5px solid ${C.line}`, background:'transparent',
-                color:C.inkSoft, fontFamily:BODY, fontWeight:700,
-                fontSize:14, cursor:'pointer' }}>
-              Fechar
-            </button>
           </div>
         </div>
       )}
@@ -774,11 +820,20 @@ export default function DescobrirPage() {
               </span>
               <ChevronRight size={13} color={C.inkSoft} strokeWidth={2.5} style={{ rotate:'90deg' }} />
             </button>
-            <button onClick={() => setNotifOpen(true)}
+            <button onClick={() => {
+                setNotifOpen(true)
+                if (notifications.some(n => !n.read)) {
+                  apiPost('/notifications/read-all').then(() =>
+                    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+                  ).catch(() => {})
+                }
+              }}
               style={{ position:'relative', background:'none', border:'none', cursor:'pointer', padding:4 }}>
               <Bell size={20} strokeWidth={2.4} color={C.ink} />
-              <div style={{ position:'absolute', top:2, right:2, width:8, height:8,
-                borderRadius:8, background:C.coral, border:`2px solid ${C.cream}` }} />
+              {notifications.some(n => !n.read) && (
+                <div style={{ position:'absolute', top:2, right:2, width:8, height:8,
+                  borderRadius:8, background:C.coral, border:`2px solid ${C.cream}` }} />
+              )}
             </button>
           </div>
 

@@ -189,12 +189,41 @@ export async function gamesRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string }
     const userId = (req.user as { id: string }).id
     const pg = getPgClient()
-    const rows = await pg`SELECT creator_id, status FROM games WHERE id = ${id} LIMIT 1`
+
+    const rows = await pg`
+      SELECT g.creator_id, g.status, g.sport, g.scheduled_at, u.name AS creator_name
+      FROM games g
+      JOIN users u ON u.id = g.creator_id
+      WHERE g.id = ${id} LIMIT 1
+    `
     const game = rows[0]
     if (!game) return reply.status(404).send({ error: 'Game not found' })
     if (game['creator_id'] !== userId) return reply.status(403).send({ error: 'Only the creator can cancel' })
     if (game['status'] === 'cancelled') return reply.status(409).send({ error: 'Already cancelled' })
+
     await pg`UPDATE games SET status = 'cancelled' WHERE id = ${id}`
+
+    // notify all participants except the creator
+    const participants = await pg`
+      SELECT user_id FROM game_participants
+      WHERE game_id = ${id} AND user_id != ${userId}
+    `
+    const sportLabel: Record<string, string> = {
+      padel: 'Padel', beach_tennis: 'Beach Tennis', tennis: 'Tênis'
+    }
+    const date = new Date(game['scheduled_at']).toLocaleDateString('pt-BR', {
+      weekday: 'short', day: '2-digit', month: '2-digit'
+    })
+    const title = 'Jogo cancelado'
+    const body = `O jogo de ${sportLabel[game['sport']] ?? game['sport']} de ${date} foi cancelado pelo organizador`
+
+    for (const p of participants) {
+      await pg`
+        INSERT INTO notifications (user_id, type, title, body, game_id)
+        VALUES (${p['user_id']}, 'game_cancelled', ${title}, ${body}, ${id})
+      `
+    }
+
     return reply.send({ ok: true })
   })
 
