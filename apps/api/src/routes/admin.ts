@@ -57,7 +57,7 @@ export async function adminRoutes(app: FastifyInstance) {
   app.post('/admin/cities', opts, async (req, reply) => {
     const parsed = citySchema.safeParse(req.body)
     if (!parsed.success) return reply.status(400).send({ error: parsed.error.flatten() })
-    const [city] = await db.insert(cities).values(parsed.data).returning()
+    const [city] = await db.insert(cities).values(parsed.data as InferInsertModel<typeof cities>).returning()
     return reply.status(201).send(city)
   })
 
@@ -82,7 +82,7 @@ export async function adminRoutes(app: FastifyInstance) {
   app.post('/admin/venues', opts, async (req, reply) => {
     const parsed = venueSchema.safeParse(req.body)
     if (!parsed.success) return reply.status(400).send({ error: parsed.error.flatten() })
-    const [venue] = await db.insert(venues).values(parsed.data).returning()
+    const [venue] = await db.insert(venues).values(parsed.data as InferInsertModel<typeof venues>).returning()
     return reply.status(201).send(venue)
   })
 
@@ -108,7 +108,7 @@ export async function adminRoutes(app: FastifyInstance) {
     if (!isUUID(venueId)) return reply.status(400).send({ error: 'Invalid venueId' })
     const parsed = courtSchema.safeParse(req.body)
     if (!parsed.success) return reply.status(400).send({ error: parsed.error.flatten() })
-    const [court] = await db.insert(courts).values({ ...parsed.data, venueId }).returning()
+    const [court] = await db.insert(courts).values({ ...parsed.data, venueId } as InferInsertModel<typeof courts>).returning()
     return reply.status(201).send(court)
   })
 
