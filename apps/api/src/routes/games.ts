@@ -184,6 +184,20 @@ export async function gamesRoutes(app: FastifyInstance) {
     return reply.status(201).send(rows[0])
   })
 
+  // POST /games/:id/cancel (creator only)
+  app.post('/games/:id/cancel', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { id } = req.params as { id: string }
+    const userId = (req.user as { id: string }).id
+    const pg = getPgClient()
+    const rows = await pg`SELECT creator_id, status FROM games WHERE id = ${id} LIMIT 1`
+    const game = rows[0]
+    if (!game) return reply.status(404).send({ error: 'Game not found' })
+    if (game['creator_id'] !== userId) return reply.status(403).send({ error: 'Only the creator can cancel' })
+    if (game['status'] === 'cancelled') return reply.status(409).send({ error: 'Already cancelled' })
+    await pg`UPDATE games SET status = 'cancelled' WHERE id = ${id}`
+    return reply.send({ ok: true })
+  })
+
   // POST /games/:id/join
   app.post('/games/:id/join', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { id } = req.params as { id: string }

@@ -131,6 +131,8 @@ function GameDetailView({ game, userId, onBack }: {
   const [sending,       setSending]       = useState(false)
   const [loadingMsg,    setLoadingMsg]    = useState(false)
   const [sportModal,    setSportModal]    = useState(false)
+  const [cancelModal,   setCancelModal]   = useState(false)
+  const [cancelling,    setCancelling]    = useState(false)
   const msgEndRef = useRef<HTMLDivElement>(null)
 
   const loadMessages = useCallback(async () => {
@@ -146,6 +148,15 @@ function GameDetailView({ game, userId, onBack }: {
   useEffect(() => {
     msgEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  async function cancelGame() {
+    setCancelling(true)
+    try {
+      await apiPost(`/games/${detail.id}/cancel`)
+      setCancelModal(false)
+      onBack()
+    } catch { setCancelling(false) }
+  }
 
   async function handleJoinClick() {
     try {
@@ -196,6 +207,42 @@ function GameDetailView({ game, userId, onBack }: {
 
   return (
     <PageWrapper>
+      {cancelModal && (
+        <div style={{ position:'fixed', inset:0, zIndex:999, display:'flex', alignItems:'center',
+          justifyContent:'center', background:'rgba(26,24,19,0.55)', padding:'0 24px' }}
+          onClick={() => setCancelModal(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ width:'100%', maxWidth:340, background:C.cream, borderRadius:28,
+              padding:'32px 24px 24px', boxShadow:'0 24px 60px rgba(0,0,0,0.22)',
+              display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center' }}>
+            <div style={{ width:56, height:56, borderRadius:18, background:`${C.coral}15`,
+              display:'flex', alignItems:'center', justifyContent:'center', marginBottom:16 }}>
+              <span style={{ fontSize:28 }}>⚠️</span>
+            </div>
+            <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:20, color:C.ink, marginBottom:8 }}>
+              Cancelar jogo?
+            </div>
+            <div style={{ fontFamily:BODY, fontSize:14, color:C.inkSoft, lineHeight:1.6,
+              marginBottom:28, maxWidth:240 }}>
+              Todos os participantes serão removidos e o jogo não poderá ser reaberto.
+            </div>
+            <button onClick={cancelGame} disabled={cancelling}
+              style={{ width:'100%', padding:'15px', borderRadius:16, border:'none',
+                background:C.coral, color:'#fff', fontFamily:DISPLAY, fontWeight:800,
+                fontSize:15, cursor:'pointer', marginBottom:10,
+                opacity: cancelling ? 0.7 : 1 }}>
+              {cancelling ? 'Cancelando…' : 'Sim, cancelar jogo'}
+            </button>
+            <button onClick={() => setCancelModal(false)}
+              style={{ width:'100%', padding:'13px', borderRadius:16,
+                border:`1.5px solid ${C.line}`, background:'transparent',
+                color:C.inkSoft, fontFamily:BODY, fontWeight:700,
+                fontSize:14, cursor:'pointer' }}>
+              Voltar
+            </button>
+          </div>
+        </div>
+      )}
       {sportModal && (
         <div style={{ position:'fixed', inset:0, zIndex:999, display:'flex', alignItems:'center',
           justifyContent:'center', background:'rgba(26,24,19,0.55)', padding:'0 24px' }}
@@ -245,10 +292,23 @@ function GameDetailView({ game, userId, onBack }: {
               color: joinMsg.includes('🎉') ? C.ink : C.coral }}>
               {joinMsg}
             </div>
+          ) : isCreator ? (
+            <div style={{ display:'flex', gap:8 }}>
+              <div style={{ flex:1, padding:'13px', borderRadius:16, textAlign:'center', fontFamily:BODY,
+                fontSize:13, fontWeight:700, background:`${C.lime}22`, color:C.ink }}>
+                ⚡ Você criou este jogo
+              </div>
+              <button onClick={() => setCancelModal(true)}
+                style={{ padding:'13px 16px', borderRadius:16, border:`1.5px solid ${C.coral}33`,
+                  background:`${C.coral}12`, color:C.coral, fontFamily:BODY, fontWeight:700,
+                  fontSize:13, cursor:'pointer', whiteSpace:'nowrap' }}>
+                Cancelar jogo
+              </button>
+            </div>
           ) : alreadyIn ? (
             <div style={{ padding:'13px', borderRadius:16, textAlign:'center', fontFamily:BODY,
               fontSize:13, fontWeight:700, background:`${C.lime}22`, color:C.ink }}>
-              {isCreator ? '⚡ Você criou este jogo' : '✓ Você está neste jogo'}
+              ✓ Você está neste jogo
             </div>
           ) : (
             <button onClick={handleJoinClick} disabled={joining || detail.openSpots === 0}
