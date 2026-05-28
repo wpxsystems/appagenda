@@ -234,6 +234,15 @@ export const communityGroupMembers = pgTable('community_group_members', {
   joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+export const communityGroupInvites = pgTable('community_group_invites', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  groupId: uuid('group_id').notNull().references(() => communityGroups.id, { onDelete: 'cascade' }),
+  inviterId: uuid('inviter_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  inviteeId: uuid('invitee_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: text('status').notNull().default('pending'), // pending | accepted | declined
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 export const favoritePlayers = pgTable('favorite_players', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   favoriteUserId: uuid('favorite_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
