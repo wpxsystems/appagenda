@@ -20,7 +20,7 @@ interface SportProfile { sport: string; category: string | null; skillLevel: str
 interface RecentPlayer { id: string; name: string; sportProfiles: SportProfile[]; lastGameAt: string; isFavorite: boolean }
 interface FavoritePlayer { id: string; name: string; sportProfiles: SportProfile[] }
 interface FavoritesData { recentPlayers: RecentPlayer[]; favorites: FavoritePlayer[] }
-interface GroupInvite { id: string; groupId: string; groupName: string; groupSport: string | null; inviterName: string; memberCount: number; createdAt: string }
+interface GroupInvite { id: string; group_id: string; group_name: string; group_sport: string | null; inviter_name: string; member_count: number; created_at: string }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function Avatar({ name, size = 40 }: { name: string; size?: number }) {
@@ -657,7 +657,7 @@ export default function ComunidadePage() {
                       Convites pendentes
                     </div>
                     {invites.map(inv => {
-                      const s = inv.groupSport ? SPORTS_INFO[inv.groupSport] : null
+                      const s = inv.group_sport ? SPORTS_INFO[inv.group_sport] : null
                       return (
                         <div key={inv.id} style={{ background: C.cream, border: `1.5px solid ${s?.color ?? C.line}`,
                           borderRadius: 20, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -668,9 +668,9 @@ export default function ComunidadePage() {
                               <Users size={18} color={s ? s.color : C.ink} />
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 14, color: C.ink }}>{inv.groupName}</div>
+                              <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 14, color: C.ink }}>{inv.group_name}</div>
                               <div style={{ fontFamily: BODY, fontSize: 12, color: C.inkSoft }}>
-                                {inv.inviterName} te convidou · {inv.memberCount} {inv.memberCount === 1 ? 'membro' : 'membros'}
+                                {inv.inviter_name} te convidou · {inv.member_count} {inv.member_count === 1 ? 'membro' : 'membros'}
                                 {s ? ` · ${s.label}` : ''}
                               </div>
                             </div>

@@ -1,86 +1,77 @@
-# CLAUDE.md — App de Esportes de Raquete
+# CLAUDE.md — AppAgenda
 
 ## Comandos essenciais
 
 ```bash
-# Instalar dependências (root)
 pnpm install
-
-# Build de todos os pacotes
-pnpm turbo build
-
-# Dev (todos os apps em paralelo)
-pnpm turbo dev
-
-# Dev individual
-pnpm --filter api dev
-pnpm --filter mobile start
-pnpm --filter web dev
-
-# Testes
-pnpm turbo test
-
-# Type-check
-pnpm turbo typecheck
-
-# Lint
-pnpm turbo lint
-
-# Migrations (Drizzle)
-pnpm --filter db generate   # gera migration a partir do schema
-pnpm --filter db migrate    # aplica migrations no banco
-pnpm --filter db seed       # popula dados iniciais (cidades, venues de Joinville)
-
-# Build mobile (Expo)
-pnpm --filter mobile build:android
-pnpm --filter mobile build:ios
+pnpm dev                               # tudo em paralelo
+pnpm --filter api dev                  # só API (porta 3000)
+pnpm --filter mobile start             # Expo Dev Tools
+pnpm --filter web dev                  # Web admin (porta 5173)
+pnpm --filter api migrate              # rodar migrations
+pnpm --filter api seed                 # popular dados iniciais
+pnpm --filter mobile build:android     # EAS build Android
+pnpm --filter mobile build:ios         # EAS build iOS
+pnpm test                              # testes em todos os pacotes
+pnpm lint
+pnpm typecheck
 ```
 
 ## Arquitetura
 
 Monorepo Turborepo com pnpm workspaces:
-- `apps/api` — Fastify + Drizzle + PostGIS
-- `apps/mobile` — Expo + React Native
-- `apps/web` — Next.js 14 (App Router)
-- `packages/db` — schema Drizzle + migrations (fonte da verdade do banco)
-- `packages/shared` — tipos TypeScript + schemas Zod compartilhados
-- `packages/ui` — componentes React (`.native.tsx` e `.web.tsx` para platform files)
+- `apps/api`         — Express + Sequelize + PostgreSQL/PostGIS (CommonJS)
+- `apps/mobile`      — Expo + React Native
+- `apps/web`         — Next.js 14 (painel admin)
+- `packages/shared`  — Zod schemas + tipos + enums compartilhados
+- `packages/ui`      — componentes reutilizáveis (.native.tsx + .web.tsx)
 
-## Regras do projeto
+## Regras
 
-**Tipos:** sempre usar os enums de `packages/shared/src/enums.ts`. Nunca usar strings literais de esporte, nível ou status.
+**Padrão MVC:** toda rota → routes → middleware → controller (Zod) → service → model. Ver `docs/architecture.md`.
 
-**Banco:** toda mudança de schema vai em `packages/db/src/schema.ts` + nova migration gerada com `pnpm --filter db generate`. Nunca editar migrations já aplicadas.
+**Tipos:** sempre usar os enums de `packages/shared/src/enums.ts`. Nunca strings literais de esporte, nível ou status.
 
-**Validação:** schemas Zod em `packages/shared/src/schemas.ts` são reutilizados na API (input validation) e no mobile/web (form validation). Não duplicar validações.
+**Banco:** schema em `apps/api/src/models/` + migrations em `apps/api/src/migrations/`. Nunca editar migration já aplicada. Usar `pnpm --filter api migrate` para aplicar.
 
-**Geolocalização:** queries espaciais usam `geography(Point,4326)` e a extensão PostGIS. Nunca filtrar por cidade via string; usar `city_id` ou `ST_DWithin` para raio.
+**Validação:** schemas Zod em `packages/shared/src/schemas.ts` reusados na API (controllers) + mobile + web.
 
-**Auth:** toda rota autenticada usa o hook `fastify.authenticate` (verifica JWT). Rotas admin verificam `req.user.role === 'admin'`.
+**Geolocalização:** PostGIS com `geography(Point, 4326)`. Ordem `(lng, lat)`. Queries espaciais usam `ST_DWithin`. Ver `docs/architecture.md`.
 
-**Notificações push:** o envio usa a Expo Push API. Sempre registrar em `push_notifications_log`. Nunca enviar para usuário com `notifications_enabled = false`.
+**Auth:** middleware `auth` em toda rota autenticada. `requireRole('admin')` para rotas de admin. Ver `docs/security.md`.
 
-**Design:** seguir fielmente o protótipo `docs/prototipo-app-raquete.html`. Fontes: Bricolage Grotesque (títulos) + Archivo (texto). Tokens de design em `packages/ui/src/tokens.ts`.
+**Notificações push:** Expo Push API via `pushService`. Sempre registrar em `app_push_notification_log`. Nunca enviar para usuário com `notifications_enabled = false`.
 
-**Fase 1 escopo:** modo Professor existe na navegação mas redireciona para "em breve". Não implementar agendamento de aulas, pagamentos ou campeonatos.
+**Design:** seguir `docs/prototipo-app-raquete.html`. Fontes: Bricolage Grotesque (títulos) + Archivo (texto). Tokens em `packages/ui/src/tokens.ts`.
 
-## Convenções de código
+**Fase 1 escopo:** modo Professor existe na navegação mas redireciona para "em breve". Não implementar pagamentos ou campeonatos.
 
-- Arquivos TypeScript; sem `any` explícito
+## Convenções
+
+- API: CommonJS (padrão WPX); mobile/shared: TypeScript
+- Sem `any` explícito no TypeScript
+- Tabelas: `app_<singular_snake>` (`app_user`, `app_jogo`, `app_cidade`)
+- Rotas API: kebab-case plural (`/jogos`, `/sport-profiles`, `/cidades`)
+- Commits em inglês: `feat:`, `fix:`, `chore:`, `docs:`
 - Componentes React: `.tsx`; funções, não classes
-- API: handlers em `apps/api/src/routes/`; serviços (lógica de negócio) em `apps/api/src/services/`
-- Nomes de tabelas: snake_case plural (`game_participants`)
-- Nomes de rotas API: kebab-case plural (`/sport-profiles`)
-- Commits: `feat:`, `fix:`, `chore:`, `docs:` — mensagem em inglês
 
 ## Banco de dados local
 
-Requer PostgreSQL 16 + PostGIS. Criar banco e habilitar extensão:
-```sql
-CREATE DATABASE racket_app_dev;
-\c racket_app_dev
-CREATE EXTENSION postgis;
+PostgreSQL 16 + PostGIS via Docker:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d postgres
+docker exec -it appagenda-postgres-dev psql -U postgres -d appagenda \
+  -c 'CREATE EXTENSION IF NOT EXISTS postgis;'
+pnpm --filter api migrate
 ```
+
+## Variáveis de ambiente (apps/api/.env)
+
+Copiar de `apps/api/.env.example` e preencher:
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+- `JWT_SECRET`, `JWT_REFRESH_SECRET`
+- `ALLOWED_ORIGINS`
 
 ## CI
 
