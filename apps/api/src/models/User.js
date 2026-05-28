@@ -31,8 +31,10 @@ module.exports = (sequelize, DataTypes) => {
     User.hasOne(m.UserLocation,           { foreignKey: 'user_id', as: 'location' });
   };
 
+  // Defense in depth: nunca expor credenciais/PII sensível em respostas JSON,
+  // mesmo que algum controller esqueça o `attributes: { exclude: ... }`.
   User.prototype.toJSON = function () {
-    const { password_hash, ...rest } = this.get();
+    const { password_hash, google_id, push_token, deleted_at, ...rest } = this.get();
     return rest;
   };
 

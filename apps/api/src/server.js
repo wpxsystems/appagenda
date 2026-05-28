@@ -5,13 +5,17 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const pinoHttp = require('pino-http');
 const rateLimit = require('express-rate-limit');
-
 const logger = require('./utils/logger');
 const errorHandler = require('./middlewares/errorHandler');
 const routes = require('./routes');
 const { sequelize } = require('./models');
 
 const app = express();
+
+// IMPORTANTE: API está atrás do Traefik. Sem isso, req.ip vira o IP do proxy
+// (127.0.0.1) e o rate-limit conta TODOS clientes como se fossem o mesmo IP.
+// O '1' significa "confiar no PRIMEIRO proxy à frente" (Traefik).
+app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(cors({
@@ -21,14 +25,17 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 app.use(pinoHttp({ logger }));
+
+// Rate-limit GLOBAL (proteção geral DDoS por IP)
 app.use(rateLimit({
   windowMs: 60_000,
   max: Number(process.env.RATE_LIMIT_GENERAL) || 100,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
 }));
 
 app.get('/health', (_, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 app.use('/api/v1', routes);
-
 app.use(errorHandler);
 
 const port = Number(process.env.PORT) || 3000;
