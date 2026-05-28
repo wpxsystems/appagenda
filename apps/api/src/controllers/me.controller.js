@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const asyncHandler = require('../utils/asyncHandler');
 const { User, SportProfile, Jogo, Participacao, Venue, UserLocation, Cidade, sequelize } = require('../models');
 const AppError = require('../utils/AppError');
+const withUserCtx = require('../utils/withUserCtx');
 
 const availabilitySchema = z.record(
   z.enum(['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom']),
@@ -74,11 +75,15 @@ exports.updateSportProfile = asyncHandler(async (req, res) => {
   res.json(profile);
 });
 
+// === RLS: UserLocation ===
 exports.getLocation = asyncHandler(async (req, res) => {
-  const loc = await UserLocation.findOne({
-    where: { user_id: req.auth.userId },
-    include: [{ model: Cidade, as: 'cidade', attributes: ['id', 'nome', 'estado'] }],
-  });
+  const loc = await withUserCtx(req.auth.userId, (t) =>
+    UserLocation.findOne({
+      where: { user_id: req.auth.userId },
+      include: [{ model: Cidade, as: 'cidade', attributes: ['id', 'nome', 'estado'] }],
+      transaction: t,
+    })
+  );
   if (!loc) throw new AppError('Localização não definida', 404);
   res.json({ cidade_id: loc.cidade_id, nome: loc.cidade?.nome, estado: loc.cidade?.estado });
 });
@@ -90,7 +95,9 @@ exports.updateLocation = asyncHandler(async (req, res) => {
   const cidade = await Cidade.findByPk(cidade_id);
   if (!cidade) throw new AppError('Cidade não encontrada', 404);
 
-  await UserLocation.upsert({ user_id: req.auth.userId, cidade_id });
+  await withUserCtx(req.auth.userId, (t) =>
+    UserLocation.upsert({ user_id: req.auth.userId, cidade_id }, { transaction: t })
+  );
   res.json({ cidade_id, nome: cidade.nome, estado: cidade.estado });
 });
 

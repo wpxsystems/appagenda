@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const asyncHandler = require('../utils/asyncHandler');
 const { Jogo, Participacao, Venue, User, Notification, GameMessage, sequelize } = require('../models');
 const AppError = require('../utils/AppError');
+const withUserCtx = require('../utils/withUserCtx');
 
 const createJogoSchema = z.object({
   sport:              z.enum(['padel', 'beach_tennis', 'tennis']),
@@ -119,9 +120,15 @@ exports.cancel = asyncHandler(async (req, res) => {
   const title = 'Jogo cancelado';
   const body = `O jogo de ${sportLabel[jogo.sport] ?? jogo.sport} de ${date} foi cancelado pelo organizador`;
 
+  // RLS: Notification cross-user — usa withUserCtx do destinatário pra passar WITH CHECK
   const otherParticipants = jogo.participacoes.filter((p) => p.user_id !== req.auth.userId);
   await Promise.all(otherParticipants.map((p) =>
-    Notification.create({ user_id: p.user_id, type: 'game_cancelled', title, body, jogo_id: jogo.id }),
+    withUserCtx(p.user_id, (t) =>
+      Notification.create(
+        { user_id: p.user_id, type: 'game_cancelled', title, body, jogo_id: jogo.id },
+        { transaction: t }
+      )
+    )
   ));
 
   res.json({ ok: true });

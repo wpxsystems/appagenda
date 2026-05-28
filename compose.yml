@@ -1,0 +1,35 @@
+services:
+  appagenda-api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    image: appagenda-api:latest
+    container_name: appagenda-api
+    restart: unless-stopped
+    env_file: apps/api/.env
+    networks:
+      - wpxnet
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+    mem_limit: 768m
+    pids_limit: 300
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=wpxnet"
+      - "traefik.http.routers.appagenda-api.rule=Host(`api.appagenda.wpxsystems.com.br`)"
+      - "traefik.http.routers.appagenda-api.entrypoints=websecure"
+      - "traefik.http.routers.appagenda-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.appagenda-api.loadbalancer.server.port=3000"
+
+networks:
+  wpxnet:
+    external: true

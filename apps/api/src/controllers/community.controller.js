@@ -2,6 +2,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { CommunityGroup, CommunityGroupMember, CommunityGroupMessage, CommunityGroupInvite, User, FavoritePlayer, Jogo, Participacao } = require('../models');
 const { Op, literal } = require('sequelize');
 const AppError = require('../utils/AppError');
+const withUserCtx = require('../utils/withUserCtx');
 
 exports.listGroups = asyncHandler(async (req, res) => {
   const memberships = await CommunityGroupMember.findAll({
@@ -105,26 +106,31 @@ exports.leaveGroup = asyncHandler(async (req, res) => {
   res.json({ ok: true });
 });
 
+// === RLS: FavoritePlayer ===
 exports.getFavorites = asyncHandler(async (req, res) => {
-  const [recentRows, favRows] = await Promise.all([
-    Participacao.findAll({
-      where: { user_id: req.auth.userId },
-      include: [{
-        model: Jogo, as: 'jogo',
-        where: { scheduled_at: { [Op.gte]: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000) }, status: { [Op.ne]: 'cancelled' } },
+  const [recentRows, favRows] = await withUserCtx(req.auth.userId, (t) =>
+    Promise.all([
+      Participacao.findAll({
+        where: { user_id: req.auth.userId },
         include: [{
-          model: Participacao, as: 'participacoes',
-          where: { user_id: { [Op.ne]: req.auth.userId } },
-          include: [{ model: User, as: 'user', attributes: ['id', 'nome', 'avatar_url'] }],
+          model: Jogo, as: 'jogo',
+          where: { scheduled_at: { [Op.gte]: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000) }, status: { [Op.ne]: 'cancelled' } },
+          include: [{
+            model: Participacao, as: 'participacoes',
+            where: { user_id: { [Op.ne]: req.auth.userId } },
+            include: [{ model: User, as: 'user', attributes: ['id', 'nome', 'avatar_url'] }],
+          }],
         }],
-      }],
-      limit: 20,
-    }),
-    FavoritePlayer.findAll({
-      where: { user_id: req.auth.userId },
-      include: [{ model: User, as: 'favoriteUser', attributes: ['id', 'nome', 'avatar_url'] }],
-    }),
-  ]);
+        limit: 20,
+        transaction: t,
+      }),
+      FavoritePlayer.findAll({
+        where: { user_id: req.auth.userId },
+        include: [{ model: User, as: 'favoriteUser', attributes: ['id', 'nome', 'avatar_url'] }],
+        transaction: t,
+      }),
+    ])
+  );
 
   const recentUsersMap = new Map();
   for (const p of recentRows) {
@@ -149,12 +155,22 @@ exports.getFavorites = asyncHandler(async (req, res) => {
 
 exports.addFavorite = asyncHandler(async (req, res) => {
   if (req.params.targetId === req.auth.userId) throw new AppError('Não pode favoritar a si mesmo', 400);
-  await FavoritePlayer.findOrCreate({ where: { user_id: req.auth.userId, favorite_user_id: req.params.targetId } });
+  await withUserCtx(req.auth.userId, (t) =>
+    FavoritePlayer.findOrCreate({
+      where: { user_id: req.auth.userId, favorite_user_id: req.params.targetId },
+      transaction: t,
+    })
+  );
   res.status(201).json({ ok: true });
 });
 
 exports.removeFavorite = asyncHandler(async (req, res) => {
-  await FavoritePlayer.destroy({ where: { user_id: req.auth.userId, favorite_user_id: req.params.targetId } });
+  await withUserCtx(req.auth.userId, (t) =>
+    FavoritePlayer.destroy({
+      where: { user_id: req.auth.userId, favorite_user_id: req.params.targetId },
+      transaction: t,
+    })
+  );
   res.json({ ok: true });
 });
 
