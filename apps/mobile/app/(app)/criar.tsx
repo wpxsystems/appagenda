@@ -7,6 +7,8 @@ import { Btn, Pill, SectionLabel, Toggle, Screen, colors as C, fonts as F } from
 import { sportColors, sportLabels } from '@racket-app/ui'
 
 type Sport = 'padel' | 'beach_tennis' | 'tennis'
+type Venue = { id: string; nome: string; endereco: string; esportes: string[] }
+type Court = { id: string; nome: string; sport: string; surface: string | null; is_indoor: boolean }
 
 const SPORTS: Sport[] = ['padel', 'beach_tennis', 'tennis']
 const PT_WEEKDAY = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -46,6 +48,10 @@ export default function CriarScreen() {
   const [notes, setNotes] = useState('')
 
   const [cidadeId, setCidadeId] = useState<string | null>(null)
+  const [venues, setVenues] = useState<Venue[]>([])
+  const [venueId, setVenueId] = useState<string>('')
+  const [courts, setCourts] = useState<Court[]>([])
+  const [courtId, setCourtId] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -54,6 +60,18 @@ export default function CriarScreen() {
   useEffect(() => {
     apiGet<{ cidade_id?: string }>('/me/location').then(r => setCidadeId(r.cidade_id ?? null)).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!cidadeId) return
+    apiGet<Venue[]>(`/venues?cidade_id=${cidadeId}`).then(setVenues).catch(() => setVenues([]))
+  }, [cidadeId])
+
+  useEffect(() => {
+    if (!venueId) { setCourts([]); setCourtId(''); return }
+    apiGet<Court[]>(`/venues/${venueId}/courts`)
+      .then(data => { setCourts(sport ? data.filter(c => c.sport === sport) : data); setCourtId('') })
+      .catch(() => setCourts([]))
+  }, [venueId, sport])
 
   async function submit() {
     setError('')
@@ -73,6 +91,8 @@ export default function CriarScreen() {
         court_reserved: courtReserved,
       }
       if (notes.trim()) payload.notes = notes.trim()
+      if (venueId) payload.venue_id = venueId
+      if (courtId) payload.court_id = courtId
 
       await apiPost('/jogos', payload)
       router.replace('/meus-jogos' as never)
@@ -252,6 +272,90 @@ export default function CriarScreen() {
             </View>
           </View>
 
+          <View>
+            <SectionLabel>Local (opcional)</SectionLabel>
+            <View style={{ gap: 6 }}>
+              <TouchableOpacity
+                onPress={() => { setVenueId(''); setCourtId('') }}
+                activeOpacity={0.85}
+                style={[
+                  s.venueRow,
+                  { backgroundColor: !venueId ? C.ink : C.card, borderColor: !venueId ? C.ink : C.line },
+                ]}
+              >
+                <Ionicons name="location-outline" size={15} color={!venueId ? C.cream : C.inkSoft} />
+                <Text style={{ flex: 1, fontSize: 13, fontFamily: F.bodyBold, color: !venueId ? C.cream : C.inkSoft }}>
+                  A definir / sem local fixo
+                </Text>
+                {!venueId ? <Ionicons name="checkmark" size={14} color={C.lime} /> : null}
+              </TouchableOpacity>
+              {venues.map(v => {
+                const on = venueId === v.id
+                return (
+                  <TouchableOpacity
+                    key={v.id}
+                    onPress={() => setVenueId(v.id)}
+                    activeOpacity={0.85}
+                    style={[
+                      s.venueRow,
+                      { backgroundColor: on ? C.ink : C.card, borderColor: on ? C.ink : C.line },
+                    ]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontFamily: F.bodyBold, color: on ? C.cream : C.ink }}>{v.nome}</Text>
+                      <Text style={{ fontSize: 11, color: on ? 'rgba(243,239,230,0.55)' : C.inkSoft, fontFamily: F.body, marginTop: 2 }}>
+                        {v.endereco}
+                      </Text>
+                    </View>
+                    {on ? <Ionicons name="checkmark" size={14} color={C.lime} /> : null}
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          </View>
+
+          {venueId && courts.length > 0 ? (
+            <View>
+              <SectionLabel>Quadra (opcional)</SectionLabel>
+              <View style={{ gap: 6 }}>
+                <TouchableOpacity
+                  onPress={() => setCourtId('')}
+                  activeOpacity={0.85}
+                  style={[
+                    s.venueRow,
+                    { backgroundColor: !courtId ? C.ink : C.card, borderColor: !courtId ? C.ink : C.line, padding: 10 },
+                  ]}
+                >
+                  <Text style={{ flex: 1, fontSize: 13, fontFamily: F.bodySemi, color: !courtId ? C.cream : C.inkSoft }}>
+                    Não especificar
+                  </Text>
+                </TouchableOpacity>
+                {courts.map(c => {
+                  const on = courtId === c.id
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      onPress={() => setCourtId(c.id)}
+                      activeOpacity={0.85}
+                      style={[
+                        s.venueRow,
+                        { backgroundColor: on ? C.ink : C.card, borderColor: on ? C.ink : C.line, padding: 10 },
+                      ]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 13, fontFamily: F.bodyBold, color: on ? C.cream : C.ink }}>{c.nome}</Text>
+                        <Text style={{ fontSize: 11, color: on ? 'rgba(243,239,230,0.55)' : C.inkSoft, fontFamily: F.body, marginTop: 2 }}>
+                          {c.is_indoor ? 'Coberta' : 'Descoberta'}{c.surface ? ` · ${c.surface}` : ''}
+                        </Text>
+                      </View>
+                      {on ? <Ionicons name="checkmark" size={14} color={C.lime} /> : null}
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </View>
+          ) : null}
+
           <View style={s.toggleRow}>
             <View style={{ flex: 1 }}>
               <Text style={s.toggleTitle}>Quadra já reservada</Text>
@@ -313,6 +417,11 @@ const s = StyleSheet.create({
   minCard: { flex: 1, padding: 8, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', gap: 2 },
 
   vacancyCard: { flex: 1, padding: 8, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', gap: 2 },
+
+  venueRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 12, borderRadius: 14, borderWidth: 1.5,
+  },
   helper: { marginTop: 6, fontSize: 11, color: C.inkSoft, fontFamily: F.body },
 
   toggleRow: {

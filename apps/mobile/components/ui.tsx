@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, StyleProp, ViewStyle, TextInputProps } from 'react-native'
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, StyleProp, ViewStyle, TextInputProps, Image } from 'react-native'
 import { colors as C, fontFamily as F } from '@racket-app/ui'
 
 export { C as colors }
@@ -53,12 +53,20 @@ export function Input({
 export function Avatar({ name, size = 36, uri }: { name?: string; size?: number; uri?: string | null }) {
   const initials = (name ?? '?').split(' ').slice(0, 2).map(w => w[0] ?? '').join('').toUpperCase()
   const hue = (name ?? '?').charCodeAt(0) * 37 % 360
-  const bg = uri ? 'transparent' : `hsl(${hue},50%,42%)`
+  const containerStyle = {
+    width: size, height: size, borderRadius: size / 2,
+    alignItems: 'center' as const, justifyContent: 'center' as const, overflow: 'hidden' as const,
+    backgroundColor: uri ? C.line : `hsl(${hue},50%,42%)`,
+  }
+  if (uri) {
+    return (
+      <View style={containerStyle}>
+        <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+      </View>
+    )
+  }
   return (
-    <View style={{
-      width: size, height: size, borderRadius: size / 2, backgroundColor: bg,
-      alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-    }}>
+    <View style={containerStyle}>
       <Text style={{ color: '#fff', fontSize: size * 0.36, fontFamily: F.headingBold }}>{initials}</Text>
     </View>
   )

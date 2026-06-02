@@ -339,6 +339,61 @@ pnpm --filter api migrate
 4. CI roda em `.github/workflows/ci.yml`: install → typecheck → lint → test
 5. Merge só com CI verde
 
+## Build & Deploy
+
+### Mobile (EAS Build)
+
+EAS Build compila o app na nuvem (sem precisar de Mac para iOS, sem precisar de Android Studio para Android). Configuração em [apps/mobile/eas.json](apps/mobile/eas.json) com 3 profiles:
+
+| Profile | Para que | Output |
+|---|---|---|
+| `development` | Dev client com hot reload | APK + simulator app |
+| `preview` | Build interno pra testar (TestFlight beta, APK direct) | APK + IPA |
+| `production` | Submit pra Play Store / App Store | AAB + IPA |
+
+**Setup uma vez:**
+
+```powershell
+npm install -g eas-cli
+eas login                              # cria/loga conta Expo (gratuita)
+cd apps\mobile
+eas init                               # gera projectId e atualiza app.json
+```
+
+**Builds:**
+
+```powershell
+cd apps\mobile
+
+# APK pra você testar (instala direto no celular Android)
+pnpm build:android:preview
+
+# IPA pra TestFlight (precisa Apple Developer ~$99/ano)
+pnpm build:ios:preview
+
+# Submit pras lojas (uma vez configurado eas.json submit)
+eas submit --platform android
+eas submit --platform ios
+```
+
+Cada build leva 10-20min na nuvem. Quando termina, EAS te manda link de download.
+
+### Admin web (Docker + Traefik)
+
+Dockerfile em [apps/web/Dockerfile](apps/web/Dockerfile) — Next.js 14 standalone output. Compose service `appagenda-web` em [docs/deploy.md](docs/deploy.md#7-subir-o-projeto-primeira-vez) já configurado pra rodar em `appagenda.wpxsystems.com.br` via Traefik.
+
+Deploy:
+
+```bash
+# Na VPS
+cd /opt/systems/apps/appagenda
+git pull
+docker compose build appagenda-web
+docker compose up -d appagenda-web
+```
+
+API não precisa rebuild — só o admin web sobe.
+
 ## Onde achar mais detalhe
 
 - [SPEC.md](SPEC.md) — especificação completa de produto/features

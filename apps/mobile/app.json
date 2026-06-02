@@ -13,16 +13,34 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#00B894"
+        "backgroundColor": "#CBF135"
       },
       "package": "com.wpxsystems.appagenda"
+    },
+    "owner": "wpxsystems",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/<PROJECT_ID_PREENCHIDO_NO_PRIMEIRO_EAS_BUILD>"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "<PROJECT_ID_PREENCHIDO_NO_PRIMEIRO_EAS_BUILD>"
+      }
     },
     "web": {
       "bundler": "metro"
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Para escolher uma foto de perfil"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

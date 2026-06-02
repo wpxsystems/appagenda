@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
+import * as ImagePicker from 'expo-image-picker'
 import { useAuth } from '../../lib/auth-context'
 import { apiGet, apiPatch, apiPost } from '../../lib/api'
 import { Btn, Avatar, Screen, SegmentedPicker, colors as C, fonts as F } from '../../components/ui'
@@ -163,6 +164,38 @@ export default function PerfilScreen() {
   const [availability, setAvailability] = useState<Availability>({})
   const [savingAvail, setSavingAvail] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+
+  async function pickAvatar() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!perm.granted) {
+      Alert.alert('Permissão negada', 'Precisamos do acesso às fotos para escolher um avatar.')
+      return
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.6,
+      base64: true,
+    })
+    if (result.canceled) return
+    const asset = result.assets[0]
+    if (!asset?.base64) return
+
+    const dataUri = `data:image/jpeg;base64,${asset.base64}`
+    setUploadingAvatar(true)
+    setAvatarUrl(dataUri)
+    try {
+      await apiPatch('/me', { avatar_url: dataUri })
+    } catch (e: any) {
+      Alert.alert('Erro', e.message ?? 'Erro ao salvar avatar')
+      setAvatarUrl(null)
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
 
   const [modalOpen, setModalOpen] = useState(false)
   const [modalSport, setModalSport] = useState<string | null>(null)
@@ -172,12 +205,14 @@ export default function PerfilScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [profiles, avail] = await Promise.all([
+      const [profiles, avail, me] = await Promise.all([
         apiGet<SportProfile[]>('/me/sport-profiles').catch(() => []),
         apiGet<Availability>('/me/availability').catch(() => ({})),
+        apiGet<{ avatar_url: string | null }>('/me').catch(() => ({ avatar_url: null })),
       ])
       setSportProfiles(profiles)
       setAvailability(avail ?? {})
+      setAvatarUrl(me?.avatar_url ?? null)
     } catch { /* ignore */ }
   }, [])
 
@@ -244,7 +279,17 @@ export default function PerfilScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         {/* user header */}
         <View style={s.headerRow}>
-          <Avatar name={user.name} size={68} />
+          <View>
+            <Avatar name={user.name} size={68} uri={avatarUrl} />
+            <TouchableOpacity
+              onPress={pickAvatar}
+              disabled={uploadingAvatar}
+              activeOpacity={0.85}
+              style={s.cameraBtn}
+            >
+              <Ionicons name={uploadingAvatar ? 'hourglass-outline' : 'camera'} size={12} color={C.ink} />
+            </TouchableOpacity>
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={s.userName}>{user.name}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
@@ -415,6 +460,12 @@ export default function PerfilScreen() {
 
 const s = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20, paddingBottom: 16 },
+  cameraBtn: {
+    position: 'absolute', bottom: -2, right: -2,
+    width: 26, height: 26, borderRadius: 13, backgroundColor: C.lime,
+    borderWidth: 2, borderColor: C.cream,
+    alignItems: 'center', justifyContent: 'center',
+  },
   userName: { fontFamily: F.headingBold, fontSize: 22, color: C.ink, letterSpacing: -0.5 },
 
   statsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginBottom: 16 },

@@ -1,5 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
-const { CommunityGroup, CommunityGroupMember, CommunityGroupMessage, CommunityGroupInvite, User, FavoritePlayer, Jogo, Participacao } = require('../models');
+const { CommunityGroup, CommunityGroupMember, CommunityGroupMessage, CommunityGroupInvite, User, FavoritePlayer, Jogo, Participacao, SportProfile } = require('../models');
 const { Op, literal } = require('sequelize');
 const AppError = require('../utils/AppError');
 const withUserCtx = require('../utils/withUserCtx');
@@ -108,6 +108,17 @@ exports.leaveGroup = asyncHandler(async (req, res) => {
 
 // === RLS: FavoritePlayer ===
 exports.getFavorites = asyncHandler(async (req, res) => {
+  const userInclude = {
+    model: User,
+    attributes: ['id', 'nome', 'avatar_url'],
+    include: [{
+      model: SportProfile,
+      as: 'sportProfiles',
+      attributes: ['sport', 'category', 'side_preference', 'skill_level', 'play_format'],
+      required: false,
+    }],
+  };
+
   const [recentRows, favRows] = await withUserCtx(req.auth.userId, (t) =>
     Promise.all([
       Participacao.findAll({
@@ -118,7 +129,7 @@ exports.getFavorites = asyncHandler(async (req, res) => {
           include: [{
             model: Participacao, as: 'participacoes',
             where: { user_id: { [Op.ne]: req.auth.userId } },
-            include: [{ model: User, as: 'user', attributes: ['id', 'nome', 'avatar_url'] }],
+            include: [{ ...userInclude, as: 'user' }],
           }],
         }],
         limit: 20,
@@ -126,18 +137,30 @@ exports.getFavorites = asyncHandler(async (req, res) => {
       }),
       FavoritePlayer.findAll({
         where: { user_id: req.auth.userId },
-        include: [{ model: User, as: 'favoriteUser', attributes: ['id', 'nome', 'avatar_url'] }],
+        include: [{ ...userInclude, as: 'favoriteUser' }],
         transaction: t,
       }),
     ])
   );
+
+  const mapSportProfiles = (profiles) =>
+    (profiles ?? []).map((p) => ({
+      sport: p.sport,
+      category: p.category,
+      side_preference: p.side_preference,
+      skill_level: p.skill_level,
+      play_format: p.play_format,
+    }));
 
   const recentUsersMap = new Map();
   for (const p of recentRows) {
     for (const other of p.jogo?.participacoes ?? []) {
       if (!recentUsersMap.has(other.user_id)) {
         recentUsersMap.set(other.user_id, {
-          id: other.user?.id, nome: other.user?.nome, avatar_url: other.user?.avatar_url,
+          id: other.user?.id,
+          nome: other.user?.nome,
+          avatar_url: other.user?.avatar_url,
+          sport_profiles: mapSportProfiles(other.user?.sportProfiles),
           last_game_at: p.jogo.scheduled_at,
           is_favorite: favRows.some((f) => f.favorite_user_id === other.user_id),
         });
@@ -148,7 +171,10 @@ exports.getFavorites = asyncHandler(async (req, res) => {
   res.json({
     recent_players: Array.from(recentUsersMap.values()),
     favorites: favRows.map((f) => ({
-      id: f.favoriteUser?.id, nome: f.favoriteUser?.nome, avatar_url: f.favoriteUser?.avatar_url,
+      id: f.favoriteUser?.id,
+      nome: f.favoriteUser?.nome,
+      avatar_url: f.favoriteUser?.avatar_url,
+      sport_profiles: mapSportProfiles(f.favoriteUser?.sportProfiles),
     })),
   });
 });

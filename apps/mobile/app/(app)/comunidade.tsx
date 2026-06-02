@@ -12,8 +12,16 @@ type Group = {
   member_count: number; is_admin: boolean
   last_message: string | null; last_message_at: string | null
 }
+type SportProfile = {
+  sport: string
+  category: string | null
+  skill_level: string | null
+}
 type ApiConnection = {
-  id: string; nome: string; avatar_url: string | null
+  id: string
+  nome: string
+  avatar_url: string | null
+  sport_profiles?: SportProfile[]
 }
 type Invite = {
   id: string; group_id: string; group_name: string; group_sport: string | null
@@ -26,6 +34,33 @@ function timeAgo(dt: string) {
   if (diff < 3600) return `${Math.floor(diff / 60)}min`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h`
   return new Date(dt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
+function ConnRow({ c, isFav }: { c: ApiConnection; isFav: boolean }) {
+  return (
+    <View style={s.connCard}>
+      <Avatar name={c.nome} size={42} uri={c.avatar_url} />
+      <View style={{ flex: 1 }}>
+        <Text style={s.connName}>{c.nome}</Text>
+        {c.sport_profiles && c.sport_profiles.length > 0 ? (
+          <View style={s.sportTagsRow}>
+            {c.sport_profiles.map((sp, i) => {
+              const color = sportColors[sp.sport as keyof typeof sportColors] ?? C.inkSoft
+              const detail = sp.category ? ` · Cat. ${sp.category}` : sp.skill_level ? ` · ${sp.skill_level}` : ''
+              return (
+                <View key={i} style={[s.sportTag, { backgroundColor: `${color}1A` }]}>
+                  <Text style={[s.sportTagText, { color }]}>
+                    {sportLabels[sp.sport as keyof typeof sportLabels] ?? sp.sport}{detail}
+                  </Text>
+                </View>
+              )
+            })}
+          </View>
+        ) : null}
+      </View>
+      <Ionicons name={isFav ? 'star' : 'star-outline'} size={18} color={isFav ? C.lime : C.inkSoft} />
+    </View>
+  )
 }
 
 export default function ComunidadeScreen() {
@@ -165,25 +200,13 @@ export default function ComunidadeScreen() {
           {connections.favorites.length > 0 ? (
             <>
               <Text style={s.sectionLabel}>⭐  FAVORITOS</Text>
-              {connections.favorites.map(c => (
-                <View key={c.id} style={s.connCard}>
-                  <Avatar name={c.nome} size={42} />
-                  <Text style={s.connName}>{c.nome}</Text>
-                  <Ionicons name="star" size={18} color={C.lime} />
-                </View>
-              ))}
+              {connections.favorites.map(c => <ConnRow key={c.id} c={c} isFav />)}
             </>
           ) : null}
           {connections.recent.length > 0 ? (
             <>
               <Text style={s.sectionLabel}>🔗  COM QUEM VOCÊ JOGOU</Text>
-              {connections.recent.map(c => (
-                <View key={c.id} style={s.connCard}>
-                  <Avatar name={c.nome} size={42} />
-                  <Text style={s.connName}>{c.nome}</Text>
-                  <Ionicons name="star-outline" size={18} color={C.inkSoft} />
-                </View>
-              ))}
+              {connections.recent.map(c => <ConnRow key={c.id} c={c} isFav={false} />)}
             </>
           ) : null}
           {totalConnections === 0 ? (
@@ -309,7 +332,10 @@ const s = StyleSheet.create({
     backgroundColor: C.card, borderRadius: 18, borderWidth: 1.5, borderColor: C.line,
     marginBottom: 8,
   },
-  connName: { flex: 1, fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
+  connName: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
+  sportTagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+  sportTag: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999 },
+  sportTagText: { fontSize: 11, fontFamily: F.bodyBold },
 
   inviteCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 14,

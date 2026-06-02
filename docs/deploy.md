@@ -252,7 +252,7 @@ services:
       - "traefik.http.routers.appagenda-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.appagenda-api.loadbalancer.server.port=3000"
 
-  # ── Web admin (Vite build → servido por nginx) ──────────────────
+  # ── Web admin (Next.js 14 standalone) ──────────────────────────
   appagenda-web:
     build:
       context: .
@@ -260,9 +260,21 @@ services:
     image: appagenda-web:latest
     container_name: appagenda-web
     restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - HOSTNAME=0.0.0.0
+      - NEXT_PUBLIC_API_URL=https://api.appagenda.wpxsystems.com.br/api/v1
     networks:
       - wpxnet
-    mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+    mem_limit: 256m
+    pids_limit: 200
     logging:
       driver: json-file
       options:
@@ -274,7 +286,7 @@ services:
       - "traefik.http.routers.appagenda-web.rule=Host(`appagenda.wpxsystems.com.br`)"
       - "traefik.http.routers.appagenda-web.entrypoints=websecure"
       - "traefik.http.routers.appagenda-web.tls.certresolver=letsencrypt"
-      - "traefik.http.services.appagenda-web.loadbalancer.server.port=80"
+      - "traefik.http.services.appagenda-web.loadbalancer.server.port=3001"
 
 networks:
   wpxnet:
