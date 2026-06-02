@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "AppAgenda",
+    "slug": "appagenda",
+    "version": "1.0.0",
+    "scheme": "appagenda",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.wpxsystems.appagenda"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#00B894"
+      },
+      "package": "com.wpxsystems.appagenda"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

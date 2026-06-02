@@ -1,125 +1,110 @@
 import { useState } from 'react'
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableOpacity,
-  Alert,
-} from 'react-native'
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native'
 import { useRouter } from 'expo-router'
-import { Button, Input, colors, spacing, fontSize } from '@racket-app/ui'
 import { useAuth } from '../../lib/auth-context'
 import { apiPost } from '../../lib/api'
-
-interface FormErrors {
-  email?: string
-  password?: string
-}
+import { Btn, Input, Screen, colors as C, fonts as F } from '../../components/ui'
 
 export default function LoginScreen() {
   const router = useRouter()
   const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [errors, setErrors] = useState<FormErrors>({})
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  function validate(): FormErrors {
-    const errs: FormErrors = {}
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = 'Email inválido'
-    if (!password) errs.password = 'Senha obrigatória'
-    return errs
-  }
-
-  async function handleLogin() {
-    const errs = validate()
-    setErrors(errs)
-    if (Object.keys(errs).length > 0) return
-
+  async function submit() {
+    setError('')
     setLoading(true)
     try {
-      const result = await apiPost<{
+      const res = await apiPost<{
         accessToken: string
         refreshToken: string
-        user?: { id: string; name: string; email: string; role: string }
+        user?: { id: string; nome: string; email: string; role: string }
       }>('/auth/login', { email: email.trim().toLowerCase(), password })
-
-      const user = result.user ?? { id: '', name: '', email: email.trim().toLowerCase(), role: 'player' }
-      await login({ accessToken: result.accessToken, refreshToken: result.refreshToken }, user)
-      router.replace('/(app)')
-    } catch (err: unknown) {
-      const e = err as { status?: number }
-      if (e.status === 401) {
-        Alert.alert('Credenciais inválidas', 'Verifique seu email e senha.')
-      } else {
-        Alert.alert('Erro ao entrar', 'Tente novamente mais tarde.')
-      }
+      const raw = res.user
+      const user = raw
+        ? { id: raw.id, name: raw.nome, email: raw.email, role: raw.role }
+        : { id: '', name: '', email: email.trim().toLowerCase(), role: 'player' }
+      await login({ accessToken: res.accessToken, refreshToken: res.refreshToken }, user)
+    } catch (e: unknown) {
+      const err = e as { status?: number; message?: string }
+      if (err.status === 401) setError('Email ou senha incorretos')
+      else setError(err.message ?? 'Erro ao entrar')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <Screen>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Text style={styles.title}>Entrar</Text>
+            <Text style={styles.eyebrow}>Racket App</Text>
+            <Text style={styles.title}>Bem-vindo de volta</Text>
+            <Text style={styles.subtitle}>Entre para encontrar jogos perto de você</Text>
           </View>
 
           <View style={styles.form}>
             <Input
               label="Email"
-              placeholder="seu@email.com"
               value={email}
-              onChange={setEmail}
-              type="email"
-              error={errors.email}
+              onChangeText={setEmail}
+              placeholder="seu@email.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
-            <View style={styles.fieldGap} />
             <Input
               label="Senha"
-              placeholder="Sua senha"
               value={password}
-              onChange={setPassword}
-              type="password"
-              error={errors.password}
+              onChangeText={setPassword}
+              placeholder="••••••••"
+              secureTextEntry
+              error={error || undefined}
             />
           </View>
 
-          <View style={styles.actions}>
-            <Button fullWidth onPress={handleLogin} loading={loading}>
-              Entrar
-            </Button>
-            <TouchableOpacity
-              style={styles.registerLink}
-              onPress={() => router.replace('/(auth)/register-account')}
-            >
-              <Text style={styles.registerLinkText}>Criar conta</Text>
+          <View style={{ marginTop: 24 }}>
+            <Btn fullWidth onPress={submit} disabled={loading || !email || !password}>
+              {loading ? 'Entrando…' : 'Entrar'}
+            </Btn>
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Não tem conta? </Text>
+            <TouchableOpacity onPress={() => router.replace('/(auth)/cadastro' as never)}>
+              <Text style={styles.footerLink}>Criar conta</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   )
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.surface },
-  flex: { flex: 1 },
-  scroll: { flexGrow: 1, paddingHorizontal: spacing.lg, paddingVertical: spacing.xl },
-  header: { marginBottom: spacing.xl },
-  title: { fontSize: fontSize['3xl'], fontWeight: '700', color: colors.textPrimary },
-  form: { flex: 1 },
-  fieldGap: { height: spacing.md },
-  actions: { marginTop: spacing.xl, gap: spacing.md },
-  registerLink: { alignItems: 'center', paddingVertical: spacing.sm },
-  registerLinkText: { fontSize: fontSize.sm, color: colors.primary, fontWeight: '600' },
+  scroll: { padding: 24, paddingTop: 48 },
+  header: { marginBottom: 32 },
+  eyebrow: {
+    fontSize: 11, fontFamily: F.bodyBold, color: C.lime,
+    textTransform: 'uppercase', letterSpacing: 3,
+  },
+  title: {
+    fontFamily: F.headingBold, fontSize: 28, color: C.ink, marginTop: 4,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 14, color: C.inkSoft, marginTop: 4, fontFamily: F.body,
+  },
+  form: { gap: 14 },
+  footer: {
+    marginTop: 20, flexDirection: 'row', justifyContent: 'center',
+  },
+  footerText: { fontSize: 14, color: C.inkSoft, fontFamily: F.body },
+  footerLink: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
 })

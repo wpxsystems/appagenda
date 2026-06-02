@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput,
-  FlatList, Modal, ActivityIndicator, Alert, Share, ScrollView,
+  FlatList, Modal, ActivityIndicator, Alert, ScrollView,
   KeyboardAvoidingView, Platform,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
@@ -10,15 +10,17 @@ import { colors, spacing, fontSize, borderRadius } from '@racket-app/ui'
 import { apiGet, apiPost } from '../../../lib/api'
 import { useAuth } from '../../../lib/auth-context'
 
-type Message = { id: string; content: string; createdAt: string; userId: string; name: string }
-type GroupDetail = {
-  id: string; name: string; sport: string | null; isAdmin: boolean
-  members: { id: string; name: string; avatarUrl: string | null; role: string }[]
+type Message = {
+  id: string; content: string; created_at: string; user_id: string
+  user?: { id: string; nome: string }
 }
-type Connection = {
-  id: string; name: string
-  sportProfiles: { sport: string; category: string | null; skillLevel: string | null }[]
-  isFavorite: boolean; lastGameAt: string | null
+type GroupDetail = {
+  id: string; nome: string; sport: string | null; is_admin: boolean
+  members: { id: string; nome: string; avatar_url: string | null; role: string }[]
+}
+type ApiConnection = {
+  id: string; nome: string; avatar_url: string | null; is_favorite?: boolean
+  last_game_at?: string | null
 }
 
 const SPORT_LABEL: Record<string, string> = {
@@ -45,10 +47,8 @@ export default function GroupScreen() {
   const flatRef = useRef<FlatList>(null)
 
   const [showInvite, setShowInvite] = useState(false)
-  const [inviteCode, setInviteCode] = useState<string | null>(null)
-  const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [loadingInvite, setLoadingInvite] = useState(false)
-  const [connections, setConnections] = useState<Connection[]>([])
+  const [connections, setConnections] = useState<ApiConnection[]>([])
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null)
   const [alreadyInGroup, setAlreadyInGroup] = useState<Set<string>>(new Set())
 
@@ -56,7 +56,7 @@ export default function GroupScreen() {
     try {
       const data = await apiGet<GroupDetail>(`/community/groups/${id}`)
       setGroup(data)
-      setAlreadyInGroup(new Set(data.members.map(m => m.id)))
+      setAlreadyInGroup(new Set(data.members.map((m) => m.id)))
     } catch { /* ignore */ }
   }, [id])
 
@@ -85,24 +85,15 @@ export default function GroupScreen() {
     setShowInvite(true)
     setLoadingInvite(true)
     try {
-      const [inv, conn] = await Promise.all([
-        apiPost<{ code: string; link: string }>(`/community/groups/${id}/invite`, {}),
-        apiGet<{ recentPlayers: Connection[]; favorites: Connection[] }>('/community/favorites'),
-      ])
-      setInviteCode(inv.code)
-      setInviteLink(inv.link)
+      const raw = await apiGet<{ recent_players: ApiConnection[]; favorites: ApiConnection[] }>('/community/favorites')
+      const favIds = new Set(raw.favorites.map((f) => f.id))
       const all = [
-        ...conn.favorites,
-        ...conn.recentPlayers.filter(r => !conn.favorites.find(f => f.id === r.id)),
+        ...raw.favorites,
+        ...(raw.recent_players ?? []).filter((r) => !favIds.has(r.id)),
       ]
       setConnections(all)
     } catch (e: any) { Alert.alert('Erro', e.message) }
     setLoadingInvite(false)
-  }
-
-  async function shareLink() {
-    if (!inviteLink) return
-    await Share.share({ message: `Entre no grupo "${group?.name}" no Racket App! Use o código: ${inviteCode}\n${inviteLink}` })
   }
 
   async function inviteUser(targetId: string) {
@@ -119,7 +110,7 @@ export default function GroupScreen() {
   }
 
   const myId = user?.id ?? ''
-  const sportColor = group?.sport ? (SPORT_COLOR[group.sport] ?? colors.secondary) : colors.secondary
+  const sportColor = group?.sport ? (SPORT_COLOR[group.sport as keyof typeof SPORT_COLOR] ?? colors.secondary) : colors.secondary
   const visibleMembers = group?.members.slice(0, 5) ?? []
   const extraMembers = (group?.members.length ?? 0) - visibleMembers.length
 
@@ -134,7 +125,7 @@ export default function GroupScreen() {
           {group?.sport && (
             <Text style={styles.headerSport}>{SPORT_LABEL[group.sport] ?? group.sport}</Text>
           )}
-          <Text style={styles.headerTitle}>{group?.name ?? '...'}</Text>
+          <Text style={styles.headerTitle}>{group?.nome ?? '...'}</Text>
         </View>
         <Text style={styles.memberCount}>
           {group?.members.length ?? 0} {(group?.members.length ?? 0) === 1 ? 'membro' : 'membros'}
@@ -146,7 +137,7 @@ export default function GroupScreen() {
         <View style={styles.avatarRow}>
           {visibleMembers.map((m, i) => (
             <View key={m.id} style={[styles.memberAvatar, { marginLeft: i === 0 ? 0 : -10, zIndex: 10 - i, backgroundColor: sportColor }]}>
-              <Text style={styles.memberAvatarText}>{initials(m.name)}</Text>
+              <Text style={styles.memberAvatarText}>{initials(m.nome)}</Text>
             </View>
           ))}
           {extraMembers > 0 && (
@@ -183,16 +174,17 @@ export default function GroupScreen() {
             </View>
           }
           renderItem={({ item }) => {
-            const isMe = item.userId === myId
+            const isMe = item.user_id === myId
+            const senderName = item.user?.nome ?? ''
             return (
               <View style={[styles.msgRow, isMe && styles.msgRowMe]}>
                 {!isMe && (
                   <View style={[styles.msgAvatar, { backgroundColor: sportColor }]}>
-                    <Text style={styles.msgAvatarText}>{initials(item.name)}</Text>
+                    <Text style={styles.msgAvatarText}>{initials(senderName)}</Text>
                   </View>
                 )}
                 <View style={[styles.msgBubble, isMe && styles.msgBubbleMe]}>
-                  {!isMe && <Text style={styles.msgSender}>{item.name}</Text>}
+                  {!isMe && <Text style={styles.msgSender}>{senderName}</Text>}
                   <Text style={[styles.msgText, isMe && styles.msgTextMe]}>{item.content}</Text>
                 </View>
               </View>
@@ -234,34 +226,18 @@ export default function GroupScreen() {
               <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.xl }} />
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={styles.inviteSectionLabel}>Link de convite</Text>
-                <View style={styles.codeRow}>
-                  <View style={styles.codeBox}>
-                    <Text style={styles.codeText}>{inviteCode}</Text>
-                  </View>
-                  <TouchableOpacity style={styles.shareBtn} onPress={shareLink}>
-                    <Ionicons name="share-social-outline" size={18} color="#fff" />
-                    <Text style={styles.shareBtnText}>Compartilhar</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.codeHint}>Qualquer pessoa com este código pode entrar no grupo.</Text>
-
                 {connections.length > 0 && (
                   <>
-                    <Text style={[styles.inviteSectionLabel, { marginTop: spacing.lg }]}>Suas conexões</Text>
-                    {connections.map(c => {
+                    <Text style={styles.inviteSectionLabel}>Suas conexões</Text>
+                    {connections.map((c) => {
                       const inGroup = alreadyInGroup.has(c.id)
-                      const sportLabel = c.sportProfiles
-                        .map(p => `${SPORT_LABEL[p.sport] ?? p.sport}${p.category ? ` · Cat. ${p.category}` : ''}`)
-                        .join(' • ')
                       return (
                         <View key={c.id} style={styles.connRow}>
                           <View style={[styles.connAvatar, { backgroundColor: sportColor }]}>
-                            <Text style={styles.connAvatarText}>{initials(c.name)}</Text>
+                            <Text style={styles.connAvatarText}>{initials(c.nome)}</Text>
                           </View>
                           <View style={styles.connInfo}>
-                            <Text style={styles.connName}>{c.name}</Text>
-                            {sportLabel ? <Text style={styles.connSport}>{sportLabel}</Text> : null}
+                            <Text style={styles.connName}>{c.nome}</Text>
                           </View>
                           {inGroup ? (
                             <View style={styles.inGroupBadge}>

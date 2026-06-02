@@ -1,6 +1,8 @@
 # SPEC — App de Esportes de Raquete
 > Fase 0 (Fundações) + Fase 1 (MVP — loop central do jogador)
 > Versão 1.0 — baseada na entrevista de produto de 2026-05-26
+>
+> ⚠️ **AVISO:** a seção "Stack definitiva" deste doc é histórica (planejava Fastify + Drizzle). A stack **real implementada** é **Express + Sequelize** — ver [CLAUDE.md](CLAUDE.md) e [docs/README.md](docs/README.md). Os requisitos de produto e features descritos aqui continuam válidos.
 
 ---
 

@@ -1,64 +1,49 @@
-import { View, Text, StyleSheet, SafeAreaView } from 'react-native'
+import { View, Text, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
-import { Button, colors, spacing, fontSize } from '@racket-app/ui'
+import { Btn, Screen, colors as C, fonts as F } from '../../components/ui'
 
 export default function SplashScreen() {
   const router = useRouter()
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.logoArea}>
-        <Text style={styles.logoText}>🎾</Text>
-        <Text style={styles.appName}>Racket</Text>
-        <Text style={styles.tagline}>Encontre jogadores. Marque jogos.</Text>
-      </View>
+    <Screen>
+      <View style={s.container}>
+        <View style={s.logoArea}>
+          <Text style={s.logoText}>🎾</Text>
+          <Text style={s.eyebrow}>Racket App</Text>
+          <Text style={s.appName}>AppAgenda</Text>
+          <Text style={s.tagline}>Encontre jogadores. Marque jogos.</Text>
+        </View>
 
-      <View style={styles.actions}>
-        <Button fullWidth onPress={() => router.push('/(auth)/register-account')}>
-          Criar conta
-        </Button>
-        <View style={styles.gap} />
-        <Button fullWidth variant="ghost" onPress={() => router.push('/(auth)/login')}>
-          Entrar
-        </Button>
+        <View style={s.actions}>
+          <Btn fullWidth onPress={() => router.push('/(auth)/cadastro' as never)}>
+            Criar conta
+          </Btn>
+          <View style={{ height: 12 }} />
+          <Btn fullWidth variant="ghost" onPress={() => router.push('/(auth)/login')}>
+            Entrar
+          </Btn>
+        </View>
       </View>
-    </SafeAreaView>
+    </Screen>
   )
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing['2xl'],
-  },
-  logoArea: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoText: {
-    fontSize: 72,
-    marginBottom: spacing.md,
+const s = StyleSheet.create({
+  container: { flex: 1, padding: 24, justifyContent: 'space-between' },
+  logoArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  logoText: { fontSize: 72, marginBottom: 16 },
+  eyebrow: {
+    fontSize: 11, fontFamily: F.bodyBold, color: C.lime,
+    textTransform: 'uppercase', letterSpacing: 3,
   },
   appName: {
-    fontSize: fontSize['4xl'],
-    fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: -1,
+    fontSize: 38, fontFamily: F.headingBold, color: C.ink,
+    letterSpacing: -1, marginTop: 4,
   },
   tagline: {
-    fontSize: fontSize.base,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-    textAlign: 'center',
+    fontSize: 14, color: C.inkSoft, fontFamily: F.body,
+    marginTop: 8, textAlign: 'center',
   },
-  actions: {
-    paddingBottom: spacing.md,
-  },
-  gap: {
-    height: spacing.sm,
-  },
+  actions: { paddingBottom: 12 },
 })

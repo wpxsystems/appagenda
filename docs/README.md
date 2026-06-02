@@ -21,8 +21,8 @@
 
 | Camada       | Tecnologia                                                                                |
 | ------------ | ----------------------------------------------------------------------------------------- |
-| **Mobile**   | Expo SDK 51+ + React Native + TypeScript + NativeWind (estética moderna)                  |
-| **Web admin**| React 18 + Vite + TypeScript + React Query                                                |
+| **Mobile**   | Expo SDK 51 + React Native + TypeScript + Expo Router + design tokens em `packages/ui`    |
+| **Web admin**| Next.js 14 (App Router) + TypeScript — somente painel administrativo                       |
 | **API**      | Node.js 20 + Express + Sequelize + TypeScript                                             |
 | **Banco**    | PostgreSQL 16 + PostGIS (extensão de geolocalização)                                     |
 | **Validação**| Zod (compartilhado entre mobile, web e API)                                              |
@@ -31,7 +31,9 @@
 | **Deploy**   | Docker + Traefik (HTTPS Let's Encrypt) na VPS Hostinger                                   |
 | **Build mobile** | EAS Build (Expo) — distribuição via TestFlight e Play Console                         |
 
-> **Por que esse stack?** A API segue o padrão Express + Sequelize de todos os outros projetos WPX (Estoq, Santorini, Sanches) — mesma infra Docker, mesmos docs de segurança e LGPD, mesmo CI/CD. A diferença está no mobile: Expo + NativeWind entrega estética premium sem aumentar complexidade do backend.
+> **Por que esse stack?** A API segue o padrão Express + Sequelize de todos os outros projetos WPX (Estoq, Santorini, Sanches) — mesma infra Docker, mesmos docs de segurança e LGPD, mesmo CI/CD. Mobile usa Expo + React Native StyleSheet com design tokens próprios (paleta cream/lime/ink + fontes Bricolage/Archivo).
+>
+> **O foco do projeto é o app mobile nativo.** O web existe apenas como painel admin (gestão de cidades, quadras). Não desenvolva features de usuário final no web.
 
 ---
 
@@ -51,21 +53,19 @@ appagenda/
 │   │       ├── seeders/           # Dados iniciais (cidades, esportes)
 │   │       ├── utils/             # AppError, asyncHandler, push, geo
 │   │       └── server.js
-│   ├── mobile/                    # Expo + React Native
-│   │   └── src/
-│   │       ├── screens/           # Telas (uma por rota)
-│   │       ├── components/        # Componentes reutilizáveis
-│   │       ├── hooks/             # React hooks customizados
-│   │       ├── services/          # axios + SecureStore + push
-│   │       ├── stores/            # Zustand (auth, theme, location)
-│   │       └── navigation/        # React Navigation
-│   └── web/                       # React + Vite (painel admin)
-│       └── src/
-│           ├── pages/
-│           ├── components/
-│           ├── hooks/
-│           ├── services/
-│           └── stores/
+│   ├── mobile/                    # Expo SDK 51 + React Native + Expo Router
+│   │   ├── app/                   # File-based routing (Expo Router)
+│   │   │   ├── (auth)/            # splash, login, cadastro
+│   │   │   ├── (app)/             # index (descobrir), meus-jogos, criar, comunidade, perfil
+│   │   │   └── _layout.tsx        # Root layout + font loading
+│   │   ├── components/            # ui.tsx (primitivas) + TabBar.tsx
+│   │   ├── lib/                   # api.ts, auth-context.tsx
+│   │   └── assets/
+│   └── web/                       # Next.js 14 (App Router) — somente painel admin
+│       └── app/
+│           ├── admin/             # /admin/cities, /admin/venues
+│           ├── layout.tsx
+│           └── page.tsx
 ├── packages/
 │   └── shared/                    # Zod schemas + tipos + enums
 │       └── src/
@@ -175,14 +175,14 @@ R2_BUCKET=appagenda-uploads
 ### `apps/mobile/.env` (build time — Expo)
 
 ```env
-EXPO_PUBLIC_API_URL=https://api.appagenda.wpxsystems.com.br
+EXPO_PUBLIC_API_URL=https://api.appagenda.wpxsystems.com.br/api/v1
 EXPO_PUBLIC_SENTRY_DSN=
 ```
 
 ### `apps/web/.env`
 
 ```env
-VITE_API_URL=https://api.appagenda.wpxsystems.com.br
+NEXT_PUBLIC_API_URL=https://api.appagenda.wpxsystems.com.br/api/v1
 ```
 
 > **Atenção:** `JWT_SECRET` e `JWT_REFRESH_SECRET` nunca podem mudar entre restarts. Se mudarem, todas as sessões ativas são invalidadas — usuários precisam fazer login de novo (ruim no mobile, péssimo na review da App Store).

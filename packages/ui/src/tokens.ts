@@ -1,17 +1,39 @@
 export const colors = {
-  primary: '#00B894',
-  primaryDark: '#00A381',
-  secondary: '#6C5CE7',
-  accent: '#FDCB6E',
-  background: '#F8F9FA',
+  backdrop: '#1B1A16',
+  bezel: '#0E0D0A',
+  cream: '#F3EFE6',
+  card: '#FFFFFF',
+  ink: '#1A1813',
+  inkSoft: '#8A8472',
+  line: '#E7E1D2',
+  lime: '#CBF135',
+  coral: '#F0552E',
+  success: '#1A7A45',
+
+  primary: '#CBF135',
+  primaryDark: '#A8C829',
+  secondary: '#1A1813',
+  accent: '#CBF135',
+  background: '#F3EFE6',
   surface: '#FFFFFF',
-  textPrimary: '#1A1A2E',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
-  border: '#E5E7EB',
-  error: '#EF4444',
-  success: '#10B981',
+  textPrimary: '#1A1813',
+  textSecondary: '#8A8472',
+  textMuted: '#8A8472',
+  border: '#E7E1D2',
+  error: '#F0552E',
   warning: '#F59E0B',
+} as const
+
+export const sportColors = {
+  padel: '#2E6F9E',
+  beach_tennis: '#D4880A',
+  tennis: '#B03A2E',
+} as const
+
+export const sportLabels = {
+  padel: 'Padel',
+  beach_tennis: 'Beach Tennis',
+  tennis: 'Tênis',
 } as const
 
 export const spacing = {
@@ -25,8 +47,12 @@ export const spacing = {
 } as const
 
 export const fontFamily = {
-  heading: 'BricolageGrotesque',
-  body: 'Archivo',
+  heading: 'BricolageGrotesque_700Bold',
+  headingBold: 'BricolageGrotesque_800ExtraBold',
+  body: 'Archivo_400Regular',
+  bodyMedium: 'Archivo_500Medium',
+  bodySemi: 'Archivo_600SemiBold',
+  bodyBold: 'Archivo_700Bold',
 } as const
 
 export const fontSize = {

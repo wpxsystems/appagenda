@@ -1,4 +1,4 @@
-const BASE_URL = process.env['EXPO_PUBLIC_API_URL'] ?? 'http://localhost:3001'
+const BASE_URL = process.env['EXPO_PUBLIC_API_URL'] ?? 'http://localhost:3000/api/v1'
 
 let _getToken: (() => string | null) | null = null
 
