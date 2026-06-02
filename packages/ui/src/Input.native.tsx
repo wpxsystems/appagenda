@@ -1,6 +1,6 @@
 import React from 'react'
 import { View, Text, TextInput, StyleSheet } from 'react-native'
-import { colors, spacing, borderRadius, fontSize } from './tokens.js'
+import { colors, spacing, borderRadius, fontSize } from './tokens'
 
 interface InputProps {
   label?: string

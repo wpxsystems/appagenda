@@ -1,31 +1,19 @@
 import { Tabs } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
-import { colors } from '@racket-app/ui'
+import { TabBar } from '../../components/TabBar'
 
 export default function AppLayout() {
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: { borderTopColor: colors.border },
-      }}
+      tabBar={(props) => <TabBar {...props} />}
+      screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Descobrir',
-          tabBarIcon: ({ color, size }) => <Ionicons name="search" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Perfil',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: 'Descobrir' }} />
+      <Tabs.Screen name="meus-jogos" options={{ title: 'Meus jogos' }} />
+      <Tabs.Screen name="criar" options={{ title: 'Criar' }} />
+      <Tabs.Screen name="comunidade" options={{ title: 'Comunidade' }} />
+      <Tabs.Screen name="perfil" options={{ title: 'Perfil' }} />
+
+      <Tabs.Screen name="group/[id]" options={{ href: null }} />
     </Tabs>
   )
 }

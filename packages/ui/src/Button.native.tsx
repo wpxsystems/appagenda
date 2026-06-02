@@ -1,6 +1,6 @@
 import React from 'react'
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native'
-import { colors, spacing, borderRadius, fontSize } from './tokens.js'
+import { colors, spacing, borderRadius, fontSize } from './tokens'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 type Size = 'sm' | 'md' | 'lg'

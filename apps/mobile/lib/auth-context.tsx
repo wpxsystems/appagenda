@@ -1,34 +1,33 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { Platform } from 'react-native'
+import * as SecureStore from 'expo-secure-store'
 import { setTokenGetter } from './api'
 
 const ACCESS_KEY = 'racket_access_token'
 const REFRESH_KEY = 'racket_refresh_token'
 const USER_KEY = 'racket_user'
 
-// Storage abstraction: SecureStore on native, localStorage on web
+const isWeb = Platform.OS === 'web'
+
 const storage = {
   async get(key: string): Promise<string | null> {
-    if (Platform.OS === 'web') {
+    if (isWeb) {
       return typeof window !== 'undefined' ? window.localStorage.getItem(key) : null
     }
-    const SecureStore = await import('expo-secure-store')
     return SecureStore.getItemAsync(key)
   },
   async set(key: string, value: string): Promise<void> {
-    if (Platform.OS === 'web') {
+    if (isWeb) {
       if (typeof window !== 'undefined') window.localStorage.setItem(key, value)
       return
     }
-    const SecureStore = await import('expo-secure-store')
     return SecureStore.setItemAsync(key, value)
   },
   async del(key: string): Promise<void> {
-    if (Platform.OS === 'web') {
+    if (isWeb) {
       if (typeof window !== 'undefined') window.localStorage.removeItem(key)
       return
     }
-    const SecureStore = await import('expo-secure-store')
     return SecureStore.deleteItemAsync(key)
   },
 }
