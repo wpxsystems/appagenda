@@ -13,10 +13,16 @@ module.exports = {
       deleted_at:      { type: Sequelize.DATE },
     });
 
-    await queryInterface.sequelize.query(`
-      ALTER TABLE app_cidade ADD COLUMN centro geography(Point, 4326);
-      CREATE INDEX idx_cidade_centro ON app_cidade USING GIST (centro);
-    `);
+    // PostGIS optional — skip if extension not available
+    try {
+      await queryInterface.sequelize.query(`
+        ALTER TABLE app_cidade ADD COLUMN centro geography(Point, 4326);
+        CREATE INDEX idx_cidade_centro ON app_cidade USING GIST (centro);
+      `);
+    } catch (e) {
+      if (!e.message.includes('postgis')) console.warn('PostGIS not available, skipping geography column');
+      else throw e;
+    }
 
     await queryInterface.addIndex('app_cidade', ['is_active']);
     await queryInterface.addIndex('app_cidade', { fields: ['slug'], unique: true, where: { deleted_at: null } });

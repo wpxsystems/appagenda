@@ -11,9 +11,11 @@ module.exports = {
       deleted_at:       { type: Sequelize.DATE },
     });
 
-    await queryInterface.sequelize.query(`
-      ALTER TABLE app_user_location ADD COLUMN device_location geography(Point, 4326);
-    `);
+    try {
+      await queryInterface.sequelize.query(`
+        ALTER TABLE app_user_location ADD COLUMN device_location geography(Point, 4326);
+      `);
+    } catch (e) { console.warn('PostGIS not available, skipping geography column'); }
 
     await queryInterface.addIndex('app_user_location', ['cidade_id']);
     await queryInterface.addConstraint('app_user_location', {

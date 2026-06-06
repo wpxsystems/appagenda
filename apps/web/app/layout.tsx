@@ -3,7 +3,7 @@ import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
 
 export const metadata: Metadata = {
-  title: 'Racket App',
+  title: 'PlayNet',
   description: 'Padel · Beach Tennis · Tênis',
 }
 

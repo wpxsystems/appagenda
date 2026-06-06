@@ -13,7 +13,7 @@ module.exports = (sequelize, DataTypes) => {
     status:             { type: DataTypes.ENUM('open', 'full', 'cancelled', 'completed'), defaultValue: 'open' },
     court_reserved:     { type: DataTypes.BOOLEAN, defaultValue: false },
     notes:              { type: DataTypes.TEXT },
-    target_category:    { type: DataTypes.ENUM('C', 'B', 'A', 'Open') },
+    target_category:    { type: DataTypes.ENUM('C', 'B', 'A', '8a', '7a', '6a', '5a', '4a', '3a', '2a', 'Open') },
     target_skill_level: { type: DataTypes.ENUM('beginner', 'intermediate', 'advanced', 'competitive') },
     target_side:        { type: DataTypes.ENUM('left', 'right', 'both') },
     target_play_format: { type: DataTypes.ENUM('singles', 'doubles', 'both') },

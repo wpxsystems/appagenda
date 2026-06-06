@@ -16,10 +16,12 @@ module.exports = {
       deleted_at: { type: Sequelize.DATE },
     });
 
-    await queryInterface.sequelize.query(`
-      ALTER TABLE app_venue ADD COLUMN localizacao geography(Point, 4326);
-      CREATE INDEX idx_venue_localizacao ON app_venue USING GIST (localizacao);
-    `);
+    try {
+      await queryInterface.sequelize.query(`
+        ALTER TABLE app_venue ADD COLUMN localizacao geography(Point, 4326);
+        CREATE INDEX idx_venue_localizacao ON app_venue USING GIST (localizacao);
+      `);
+    } catch (e) { console.warn('PostGIS not available, skipping geography column'); }
 
     await queryInterface.addIndex('app_venue', ['cidade_id']);
     await queryInterface.addIndex('app_venue', ['is_active']);

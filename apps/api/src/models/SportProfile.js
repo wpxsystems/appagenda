@@ -4,7 +4,7 @@ module.exports = (sequelize, DataTypes) => {
     user_id:         { type: DataTypes.UUID, allowNull: false },
     sport:           { type: DataTypes.ENUM('padel', 'beach_tennis', 'tennis'), allowNull: false },
     is_active:       { type: DataTypes.BOOLEAN, defaultValue: true },
-    category:        { type: DataTypes.ENUM('C', 'B', 'A', 'Open') },
+    category:        { type: DataTypes.ENUM('C', 'B', 'A', '8a', '7a', '6a', '5a', '4a', '3a', '2a', 'Open') },
     side_preference: { type: DataTypes.ENUM('left', 'right', 'both') },
     skill_level:     { type: DataTypes.ENUM('beginner', 'intermediate', 'advanced', 'competitive') },
     play_format:     { type: DataTypes.ENUM('singles', 'doubles', 'both') },

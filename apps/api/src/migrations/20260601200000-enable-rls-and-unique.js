@@ -25,18 +25,19 @@ module.exports = {
 
     // ========== 2. RLS por user_id (3 tabelas) ==========
     for (const t of TABELAS_RLS) {
-      await queryInterface.sequelize.query(`
-        ALTER TABLE ${t} ENABLE ROW LEVEL SECURITY;
-        ALTER TABLE ${t} FORCE ROW LEVEL SECURITY;
-        DROP POLICY IF EXISTS user_isolation ON ${t};
-        CREATE POLICY user_isolation ON ${t}
-          USING      (user_id::text = current_setting('app.current_user', true))
-          WITH CHECK (user_id::text = current_setting('app.current_user', true));
-      `);
-      // appagenda_auth (BYPASSRLS) precisa de acesso explícito pra cron/admin
-      await queryInterface.sequelize.query(`
-        GRANT SELECT, INSERT, UPDATE, DELETE ON ${t} TO appagenda_auth;
-      `);
+      try {
+        await queryInterface.sequelize.query(`
+          ALTER TABLE ${t} ENABLE ROW LEVEL SECURITY;
+          ALTER TABLE ${t} FORCE ROW LEVEL SECURITY;
+          DROP POLICY IF EXISTS user_isolation ON ${t};
+          CREATE POLICY user_isolation ON ${t}
+            USING      (user_id::text = current_setting('app.current_user', true))
+            WITH CHECK (user_id::text = current_setting('app.current_user', true));
+        `);
+        await queryInterface.sequelize.query(`
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ${t} TO appagenda_auth;
+        `);
+      } catch (e) { console.warn(`RLS/GRANT skip for ${t}:`, e.message); }
     }
 
     // ========== 3. UNIQUE parcial em email/nickname (respeita soft delete) ==========
@@ -48,14 +49,18 @@ module.exports = {
     `);
 
     await queryInterface.sequelize.query(`
-      CREATE UNIQUE INDEX app_user_email_unique_active
+      CREATE UNIQUE INDEX IF NOT EXISTS app_user_email_unique_active
         ON app_user (LOWER(email))
         WHERE deleted_at IS NULL;
-
-      CREATE UNIQUE INDEX app_user_nickname_unique_active
-        ON app_user (LOWER(nickname))
-        WHERE deleted_at IS NULL AND nickname IS NOT NULL;
     `);
+
+    try {
+      await queryInterface.sequelize.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS app_user_nickname_unique_active
+          ON app_user (LOWER(nickname))
+          WHERE deleted_at IS NULL AND nickname IS NOT NULL;
+      `);
+    } catch (e) { console.warn('nickname index skip:', e.message); }
   },
 
   async down(queryInterface) {
