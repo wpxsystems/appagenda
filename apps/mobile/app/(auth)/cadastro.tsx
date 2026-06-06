@@ -11,7 +11,10 @@ type City = { id: string; nome: string; estado: string }
 type Sport = 'padel' | 'beach_tennis' | 'tennis'
 
 const SPORTS: Sport[] = ['padel', 'beach_tennis', 'tennis']
-const PADEL_CATS = [['C', 'C'], ['B', 'B'], ['A', 'A'], ['Open', 'Open']] as const
+const PADEL_CATS = [
+  ['8a', '8ª'], ['7a', '7ª'], ['6a', '6ª'], ['5a', '5ª'],
+  ['4a', '4ª'], ['3a', '3ª'], ['2a', '2ª'], ['Open', 'Open'],
+] as const
 const PADEL_SIDES = [['left', 'Esquerdo'], ['right', 'Direito'], ['both', 'Ambos']] as const
 const TENNIS_LEVELS = [['beginner', 'Iniciante'], ['intermediate', 'Intermediário'], ['advanced', 'Avançado'], ['competitive', 'Competitivo']] as const
 const TENNIS_FORMATS = [['singles', 'Simples'], ['doubles', 'Duplas'], ['both', 'Ambos']] as const
@@ -47,6 +50,7 @@ export default function CadastroScreen() {
   const [gender, setGender] = useState<'male' | 'female' | 'other' | ''>('')
   const [cityId, setCityId] = useState('')
   const [cities, setCities] = useState<City[]>([])
+  const [citySearch, setCitySearch] = useState('')
 
   const [sports, setSports] = useState<Sport[]>([])
   const [profiles, setProfiles] = useState<Record<string, Record<string, string>>>({})
@@ -89,6 +93,13 @@ export default function CadastroScreen() {
         cidade_id: cityId,
       })
 
+      const raw = res.user
+      const user = raw
+        ? { id: raw.id, name: raw.nome, email: raw.email, role: raw.role }
+        : { id: '', name, email, role: 'player' }
+      // Login first so token is set before sending sport profiles
+      await login({ accessToken: res.accessToken, refreshToken: res.refreshToken }, user)
+
       // Send sport profiles separately (API has /me/sport-profiles)
       for (const sp of sports) {
         const p = profiles[sp] ?? {}
@@ -99,12 +110,6 @@ export default function CadastroScreen() {
           await apiPost('/me/sport-profiles', payload)
         } catch { /* ignore single failure */ }
       }
-
-      const raw = res.user
-      const user = raw
-        ? { id: raw.id, name: raw.nome, email: raw.email, role: raw.role }
-        : { id: '', name, email, role: 'player' }
-      await login({ accessToken: res.accessToken, refreshToken: res.refreshToken }, user)
     } catch (e: unknown) {
       const err = e as { status?: number; message?: string }
       if (err.status === 409) setSubmitErr('Este email já está cadastrado')
@@ -190,27 +195,40 @@ export default function CadastroScreen() {
               </View>
               <View>
                 <Text style={s.fieldLabel}>Cidade</Text>
-                <View style={{ gap: 8, maxHeight: 280 }}>
-                  <ScrollView>
-                    {cities.map(c => {
-                      const on = cityId === c.id
-                      return (
-                        <TouchableOpacity
-                          key={c.id}
-                          activeOpacity={0.8}
-                          onPress={() => setCityId(c.id)}
-                          style={[
-                            s.cityItem,
-                            { backgroundColor: on ? C.ink : C.card, borderColor: on ? C.ink : C.line },
-                          ]}
-                        >
-                          <Text style={{ fontFamily: F.bodySemi, fontSize: 14, color: on ? C.cream : C.ink, flex: 1 }}>
-                            {c.nome}, {c.estado}
-                          </Text>
-                          {on ? <Ionicons name="checkmark" size={16} color={C.lime} /> : null}
-                        </TouchableOpacity>
+                <View style={{ marginBottom: 8 }}>
+                  <Input
+                    label="Buscar cidade"
+                    placeholder="Buscar cidade..."
+                    value={citySearch}
+                    onChangeText={setCitySearch}
+                  />
+                </View>
+                <View style={{ gap: 8, maxHeight: 220 }}>
+                  <ScrollView keyboardShouldPersistTaps="handled">
+                    {cities
+                      .filter(c =>
+                        citySearch.trim() === '' ||
+                        `${c.nome} ${c.estado}`.toLowerCase().includes(citySearch.toLowerCase())
                       )
-                    })}
+                      .map(c => {
+                        const on = cityId === c.id
+                        return (
+                          <TouchableOpacity
+                            key={c.id}
+                            activeOpacity={0.8}
+                            onPress={() => { setCityId(c.id); setCitySearch(`${c.nome}, ${c.estado}`) }}
+                            style={[
+                              s.cityItem,
+                              { backgroundColor: on ? C.ink : C.card, borderColor: on ? C.ink : C.line },
+                            ]}
+                          >
+                            <Text style={{ fontFamily: F.bodySemi, fontSize: 14, color: on ? C.cream : C.ink, flex: 1 }}>
+                              {c.nome}, {c.estado}
+                            </Text>
+                            {on ? <Ionicons name="checkmark" size={16} color={C.lime} /> : null}
+                          </TouchableOpacity>
+                        )
+                      })}
                   </ScrollView>
                 </View>
               </View>

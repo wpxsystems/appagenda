@@ -10,8 +10,7 @@ export default function SplashScreen() {
       <View style={s.container}>
         <View style={s.logoArea}>
           <Text style={s.logoText}>🎾</Text>
-          <Text style={s.eyebrow}>Racket App</Text>
-          <Text style={s.appName}>AppAgenda</Text>
+          <Text style={s.appName}>PlayNet</Text>
           <Text style={s.tagline}>Encontre jogadores. Marque jogos.</Text>
         </View>
 

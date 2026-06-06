@@ -1,4 +1,6 @@
 require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -33,6 +35,11 @@ app.use(rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
 }));
+
+// Serve uploaded avatars estaticamente
+const uploadsDir = path.join(__dirname, '..', 'uploads')
+fs.mkdirSync(uploadsDir, { recursive: true })
+app.use('/uploads', express.static(uploadsDir))
 
 app.get('/health', (_, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 app.use('/api/v1', routes);

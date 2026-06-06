@@ -7,6 +7,7 @@ router.get('/:id',         auth, ctrl.getById);
 router.post('/',           auth, ctrl.create);
 router.post('/:id/join',   auth, ctrl.join);
 router.post('/:id/cancel', auth, ctrl.cancel);
+router.post('/:id/leave',  auth, ctrl.leave);
 router.get('/:id/messages',       auth, ctrl.getMessages);
 router.post('/:id/messages',      auth, ctrl.createMessage);
 

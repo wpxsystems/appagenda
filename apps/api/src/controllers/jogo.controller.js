@@ -16,7 +16,7 @@ const createJogoSchema = z.object({
   gender_type:        z.enum(['mixed', 'male', 'female']).default('mixed'),
   court_reserved:     z.boolean().default(false),
   notes:              z.string().max(500).optional(),
-  target_category:    z.enum(['C', 'B', 'A', 'Open']).optional(),
+  target_category:    z.enum(['C', 'B', 'A', '8a', '7a', '6a', '5a', '4a', '3a', '2a', 'Open']).optional(),
   target_skill_level: z.enum(['beginner', 'intermediate', 'advanced', 'competitive']).optional(),
   target_side:        z.enum(['left', 'right', 'both']).optional(),
   target_play_format: z.enum(['singles', 'doubles', 'both']).optional(),
@@ -36,7 +36,7 @@ exports.list = asyncHandler(async (req, res) => {
     include: [
       { model: Venue, as: 'venue', attributes: ['nome', 'endereco'] },
       { model: User, as: 'creator', attributes: ['nome'] },
-      { model: Participacao, as: 'participacoes', attributes: ['id', 'user_id'] },
+      { model: Participacao, as: 'participacoes', attributes: ['id', 'user_id'], include: [{ model: User, as: 'user', attributes: ['id', 'nome', 'avatar_url'] }] },
     ],
     order: [['scheduled_at', 'ASC']],
     limit: 50,
@@ -56,10 +56,14 @@ exports.list = asyncHandler(async (req, res) => {
     notes: j.notes,
     venue_nome: j.venue?.nome ?? null,
     venue_endereco: j.venue?.endereco ?? null,
-    creator_nome: j.creator?.nome ?? null,
     creator_id: j.creator_id,
     participant_count: j.participacoes?.length ?? 0,
     open_spots: j.vacancies_total - (j.participacoes?.length ?? 0),
+    participants: (j.participacoes ?? []).map((p) => ({
+      id: p.user_id,
+      nome: p.user?.nome ?? '',
+      avatar_url: p.user?.avatar_url ?? null,
+    })),
   })));
 });
 
@@ -130,6 +134,43 @@ exports.cancel = asyncHandler(async (req, res) => {
       )
     )
   ));
+
+  res.json({ ok: true });
+});
+
+exports.leave = asyncHandler(async (req, res) => {
+  const jogo = await Jogo.findByPk(req.params.id, {
+    include: [{ model: Participacao, as: 'participacoes' }],
+  });
+  if (!jogo) throw new AppError('Jogo não encontrado', 404);
+  if (jogo.creator_id === req.auth.userId) throw new AppError('O organizador não pode sair do próprio jogo', 403);
+  if (jogo.status === 'cancelled') throw new AppError('Jogo já cancelado', 409);
+
+  const participation = jogo.participacoes.find((p) => p.user_id === req.auth.userId);
+  if (!participation) throw new AppError('Você não está neste jogo', 404);
+
+  await participation.destroy();
+
+  // Notifica o organizador — falha silenciosa para não quebrar o fluxo principal
+  try {
+    const leavingUser = await User.findByPk(req.auth.userId, { attributes: ['nome'] });
+    const sportLabel = { padel: 'Padel', beach_tennis: 'Beach Tennis', tennis: 'Tênis' };
+    const date = new Date(jogo.scheduled_at).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    await withUserCtx(jogo.creator_id, (t) =>
+      Notification.create(
+        {
+          user_id: jogo.creator_id,
+          type: 'player_left',
+          title: 'Jogador saiu da partida',
+          body: `${leavingUser?.nome ?? 'Um jogador'} saiu do seu jogo de ${sportLabel[jogo.sport] ?? jogo.sport} de ${date}`,
+          jogo_id: jogo.id,
+        },
+        { transaction: t }
+      )
+    );
+  } catch (notifErr) {
+    console.warn('[leave] falha ao criar notificação:', notifErr?.message);
+  }
 
   res.json({ ok: true });
 });

@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { useFonts as useArchivo, Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold, Archivo_700Bold } from '@expo-google-fonts/archivo'
 import { useFonts as useBricolage, BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-grotesque'
 import { AuthProvider, useAuth } from '../lib/auth-context'
+import { ToastProvider } from '../components/Toast'
 import { colors } from '@racket-app/ui'
 
 function RootGuard() {
@@ -56,7 +57,9 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <RootGuard />
+        <ToastProvider>
+          <RootGuard />
+        </ToastProvider>
       </AuthProvider>
     </SafeAreaProvider>
   )

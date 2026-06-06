@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { Platform } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
-import { setTokenGetter } from './api'
+import { setTokenGetter, setRefreshHandler, apiRefreshToken } from './api'
 
 const ACCESS_KEY = 'racket_access_token'
 const REFRESH_KEY = 'racket_refresh_token'
@@ -60,9 +60,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // Register the refresh handler once — stable closure over state setters
   useEffect(() => {
-    setTokenGetter(() => accessToken)
-  }, [accessToken])
+    setRefreshHandler(async () => {
+      const storedRefresh = await storage.get(REFRESH_KEY)
+      if (!storedRefresh) return false
+
+      const tokens = await apiRefreshToken(storedRefresh)
+      if (!tokens) {
+        // Refresh failed — force logout
+        await Promise.all([storage.del(ACCESS_KEY), storage.del(REFRESH_KEY), storage.del(USER_KEY)])
+        setAccessToken(null)
+        setUser(null)
+        return false
+      }
+
+      // Update token getter immediately before state update
+      setTokenGetter(() => tokens.accessToken)
+      await Promise.all([
+        storage.set(ACCESS_KEY, tokens.accessToken),
+        storage.set(REFRESH_KEY, tokens.refreshToken),
+      ])
+      setAccessToken(tokens.accessToken)
+      return true
+    })
+  }, []) // stable — setters never change
 
   useEffect(() => {
     async function restore() {
@@ -72,6 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           storage.get(USER_KEY),
         ])
         if (storedToken && storedUser) {
+          // Set token getter immediately (synchronous) so any API call right after
+          // restore has the correct token without waiting for a re-render cycle
+          setTokenGetter(() => storedToken)
           setAccessToken(storedToken)
           setUser(JSON.parse(storedUser) as AuthUser)
         }
@@ -83,6 +108,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   async function login(tokens: AuthTokens, authUser: AuthUser) {
+    // Set token getter synchronously BEFORE any awaits so that API calls
+    // made immediately after login() resolves (e.g., sport profile POSTs
+    // in cadastro.tsx) carry the correct Authorization header
+    setTokenGetter(() => tokens.accessToken)
+
     await Promise.all([
       storage.set(ACCESS_KEY, tokens.accessToken),
       storage.set(REFRESH_KEY, tokens.refreshToken),
@@ -98,6 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       storage.del(REFRESH_KEY),
       storage.del(USER_KEY),
     ])
+    setTokenGetter(() => null)
     setAccessToken(null)
     setUser(null)
   }

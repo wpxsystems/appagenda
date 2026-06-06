@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useAuth } from '../../lib/auth-context'
@@ -112,6 +113,7 @@ export default function MeusJogosScreen() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useFocusEffect(useCallback(() => { load() }, [load]))
 
   const now = new Date()
   const proximos = myGames.filter(g => g.status !== 'cancelled' && new Date(g.scheduled_at) >= now)
@@ -153,7 +155,7 @@ export default function MeusJogosScreen() {
             </View>
           ) : (
             list.map(g => (
-              <GameCard key={g.id} g={g} onPress={() => router.push({ pathname: '/', params: { gameId: g.id } } as never)} />
+              <GameCard key={g.id} g={g} onPress={() => router.push(`/(app)/jogo/${g.id}` as never)} />
             ))
           )}
         </ScrollView>
@@ -171,9 +173,11 @@ const s = StyleSheet.create({
   scroll: { padding: 16, gap: 10 },
 
   card: {
-    flexDirection: 'row', borderRadius: 20, overflow: 'hidden',
-    backgroundColor: C.cream, borderWidth: 1.5, borderColor: C.line,
+    flexDirection: 'row', borderRadius: 24, overflow: 'hidden',
+    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
     marginBottom: 10,
+    shadowColor: '#1A1813', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.09,
+    shadowRadius: 12, elevation: 3,
   },
   cardBar: { width: 5 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },

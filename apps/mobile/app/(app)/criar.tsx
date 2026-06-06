@@ -4,13 +4,17 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { apiPost, apiGet } from '../../lib/api'
 import { Btn, Pill, SectionLabel, Toggle, Screen, colors as C, fonts as F } from '../../components/ui'
+import { useToast } from '../../components/Toast'
 import { sportColors, sportLabels } from '@racket-app/ui'
 
 type Sport = 'padel' | 'beach_tennis' | 'tennis'
-type Venue = { id: string; nome: string; endereco: string; esportes: string[] }
-type Court = { id: string; nome: string; sport: string; surface: string | null; is_indoor: boolean }
 
 const SPORTS: Sport[] = ['padel', 'beach_tennis', 'tennis']
+
+const PADEL_CATS = ['8a','7a','6a','5a','4a','3a','2a','Open'] as const
+const BEACH_CATS = ['C','B','A','Open'] as const
+const TENNIS_LEVELS = [['beginner','Iniciante'],['intermediate','Intermediário'],['advanced','Avançado'],['competitive','Competitivo']] as const
+
 const PT_WEEKDAY = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const PT_MONTH = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 const HOURS = Array.from({ length: 18 }, (_, i) => i + 6)
@@ -27,17 +31,22 @@ function buildDays(count = 30) {
   return days
 }
 
-function toISO(d: Date) { return d.toISOString().slice(0, 10) }
+function toISO(d: Date) {
+  // usa data local, não UTC
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 function scheduledAt(d: Date, h: number, m: number) {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${toISO(d)}T${pad(h)}:${pad(m)}:00.000Z`
+  // constrói no horário local e converte para UTC via toISOString()
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0).toISOString()
 }
 
 export default function CriarScreen() {
   const router = useRouter()
 
   const [sport, setSport] = useState<Sport | ''>('')
+  const [category, setCategory] = useState('')
+  const [skillLevel, setSkillLevel] = useState('')
   const [selDay, setSelDay] = useState<Date | null>(null)
   const [hour, setHour] = useState(9)
   const [minute, setMinute] = useState(0)
@@ -48,39 +57,45 @@ export default function CriarScreen() {
   const [notes, setNotes] = useState('')
 
   const [cidadeId, setCidadeId] = useState<string | null>(null)
-  const [venues, setVenues] = useState<Venue[]>([])
-  const [venueId, setVenueId] = useState<string>('')
-  const [courts, setCourts] = useState<Court[]>([])
-  const [courtId, setCourtId] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const { showToast } = useToast()
 
   const days = useRef(buildDays(30)).current
 
   useEffect(() => {
-    apiGet<{ cidade_id?: string }>('/me/location').then(r => setCidadeId(r.cidade_id ?? null)).catch(() => {})
+    apiGet<{ cidade_id?: string }>('/me/location')
+      .then(r => {
+        if (r.cidade_id) { setCidadeId(r.cidade_id); return }
+        // fallback: use city from user profile
+        return apiGet<{ cidade_id?: string }>('/me').then(me => setCidadeId(me.cidade_id ?? null))
+      })
+      .catch(() => {
+        apiGet<{ cidade_id?: string }>('/me').then(me => setCidadeId(me.cidade_id ?? null)).catch(() => {})
+      })
   }, [])
-
-  useEffect(() => {
-    if (!cidadeId) return
-    apiGet<Venue[]>(`/venues?cidade_id=${cidadeId}`).then(setVenues).catch(() => setVenues([]))
-  }, [cidadeId])
-
-  useEffect(() => {
-    if (!venueId) { setCourts([]); setCourtId(''); return }
-    apiGet<Court[]>(`/venues/${venueId}/courts`)
-      .then(data => { setCourts(sport ? data.filter(c => c.sport === sport) : data); setCourtId('') })
-      .catch(() => setCourts([]))
-  }, [venueId, sport])
 
   async function submit() {
     setError('')
-    if (!sport) { setError('Selecione um esporte'); return }
-    if (!selDay) { setError('Selecione uma data'); return }
-    if (!cidadeId) { setError('Cidade não definida no perfil'); return }
+    if (!sport) { showToast({ type: 'error', title: 'Selecione um esporte' }); return }
+    if (!selDay) { showToast({ type: 'error', title: 'Selecione uma data' }); return }
+    if (!cidadeId) { showToast({ type: 'error', title: 'Cidade não definida no perfil' }); return }
 
     setSubmitting(true)
     try {
+      // Check for scheduling conflict
+      const myGames = await apiGet<{ scheduled_at: string; duration_minutes: number }[]>('/me/jogos')
+      const newStart = new Date(scheduledAt(selDay, hour, minute)).getTime()
+      const conflict = myGames.find(g => {
+        const start = new Date(g.scheduled_at).getTime()
+        const end = start + g.duration_minutes * 60_000
+        return newStart >= start && newStart < end
+      })
+      if (conflict) {
+        showToast({ type: 'error', title: 'Conflito de horário', message: 'Você já tem um jogo neste horário.' })
+        return
+      }
+
       const payload: Record<string, unknown> = {
         sport,
         cidade_id: cidadeId,
@@ -91,17 +106,24 @@ export default function CriarScreen() {
         court_reserved: courtReserved,
       }
       if (notes.trim()) payload.notes = notes.trim()
-      if (venueId) payload.venue_id = venueId
-      if (courtId) payload.court_id = courtId
+      if (category) payload.target_category = category
+      if (skillLevel) payload.target_skill_level = skillLevel
 
       await apiPost('/jogos', payload)
-      router.replace('/meus-jogos' as never)
+      showToast({ type: 'success', title: 'Jogo publicado!', message: 'Seu jogo já está visível.' })
+      setTimeout(() => router.replace('/(app)/meus-jogos' as never), 1000)
     } catch (e: unknown) {
       const err = e as { message?: string }
-      setError(err.message ?? 'Erro ao criar jogo')
+      showToast({ type: 'error', title: err.message ?? 'Erro ao criar jogo' })
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function selectSport(sp: Sport) {
+    setSport(sp)
+    setCategory('')
+    setSkillLevel('')
   }
 
   const sportColor = sport ? sportColors[sport] : C.ink
@@ -117,36 +139,62 @@ export default function CriarScreen() {
         <ScrollView contentContainerStyle={s.scroll}>
           <View>
             <SectionLabel>Esporte</SectionLabel>
-            <View style={{ gap: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
               {SPORTS.map(sp => {
                 const on = sport === sp
                 const color = sportColors[sp]
                 return (
                   <TouchableOpacity
                     key={sp}
-                    onPress={() => setSport(sp)}
+                    onPress={() => selectSport(sp)}
                     activeOpacity={0.85}
                     style={[
-                      s.sportRow,
-                      { backgroundColor: on ? C.ink : C.card, borderColor: on ? C.ink : C.line },
+                      s.sportBtn,
+                      { backgroundColor: on ? color : C.card, borderColor: on ? color : C.line },
                     ]}
                   >
-                    <View style={[s.sportBar, { backgroundColor: color }]} />
-                    <View style={{ flex: 1, paddingHorizontal: 14, paddingVertical: 14 }}>
-                      <Text style={{ fontFamily: F.headingBold, fontSize: 15, color: on ? C.cream : C.ink }}>
-                        {sportLabels[sp]}
-                      </Text>
-                    </View>
-                    {on ? (
-                      <View style={s.checkCircle}>
-                        <Ionicons name="checkmark" size={13} color={C.ink} />
-                      </View>
-                    ) : null}
+                    <Text style={{ fontFamily: F.bodyBold, fontSize: 13, color: on ? '#fff' : C.inkSoft, textAlign: 'center' }}>
+                      {sportLabels[sp]}
+                    </Text>
                   </TouchableOpacity>
                 )
               })}
             </View>
           </View>
+
+          {/* Categoria — Padel e Beach Tennis */}
+          {(sport === 'padel' || sport === 'beach_tennis') ? (
+            <View>
+              <SectionLabel>Categoria <Text style={{ color: C.inkSoft, fontSize: 11 }}>(opcional)</Text></SectionLabel>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {(sport === 'padel' ? PADEL_CATS : BEACH_CATS).map(cat => (
+                  <Pill
+                    key={cat}
+                    label={cat === 'Open' ? 'Open' : `Cat. ${cat}`}
+                    active={category === cat}
+                    onPress={() => setCategory(prev => prev === cat ? '' : cat)}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Nível — Tênis */}
+          {sport === 'tennis' ? (
+            <View>
+              <SectionLabel>Nível <Text style={{ color: C.inkSoft, fontSize: 11 }}>(opcional)</Text></SectionLabel>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {TENNIS_LEVELS.map(([val, lbl]) => (
+                  <Pill
+                    key={val}
+                    label={lbl}
+                    active={skillLevel === val}
+                    onPress={() => setSkillLevel(prev => prev === val ? '' : val)}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           <View>
             <SectionLabel>Data</SectionLabel>
@@ -272,90 +320,6 @@ export default function CriarScreen() {
             </View>
           </View>
 
-          <View>
-            <SectionLabel>Local (opcional)</SectionLabel>
-            <View style={{ gap: 6 }}>
-              <TouchableOpacity
-                onPress={() => { setVenueId(''); setCourtId('') }}
-                activeOpacity={0.85}
-                style={[
-                  s.venueRow,
-                  { backgroundColor: !venueId ? C.ink : C.card, borderColor: !venueId ? C.ink : C.line },
-                ]}
-              >
-                <Ionicons name="location-outline" size={15} color={!venueId ? C.cream : C.inkSoft} />
-                <Text style={{ flex: 1, fontSize: 13, fontFamily: F.bodyBold, color: !venueId ? C.cream : C.inkSoft }}>
-                  A definir / sem local fixo
-                </Text>
-                {!venueId ? <Ionicons name="checkmark" size={14} color={C.lime} /> : null}
-              </TouchableOpacity>
-              {venues.map(v => {
-                const on = venueId === v.id
-                return (
-                  <TouchableOpacity
-                    key={v.id}
-                    onPress={() => setVenueId(v.id)}
-                    activeOpacity={0.85}
-                    style={[
-                      s.venueRow,
-                      { backgroundColor: on ? C.ink : C.card, borderColor: on ? C.ink : C.line },
-                    ]}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 13, fontFamily: F.bodyBold, color: on ? C.cream : C.ink }}>{v.nome}</Text>
-                      <Text style={{ fontSize: 11, color: on ? 'rgba(243,239,230,0.55)' : C.inkSoft, fontFamily: F.body, marginTop: 2 }}>
-                        {v.endereco}
-                      </Text>
-                    </View>
-                    {on ? <Ionicons name="checkmark" size={14} color={C.lime} /> : null}
-                  </TouchableOpacity>
-                )
-              })}
-            </View>
-          </View>
-
-          {venueId && courts.length > 0 ? (
-            <View>
-              <SectionLabel>Quadra (opcional)</SectionLabel>
-              <View style={{ gap: 6 }}>
-                <TouchableOpacity
-                  onPress={() => setCourtId('')}
-                  activeOpacity={0.85}
-                  style={[
-                    s.venueRow,
-                    { backgroundColor: !courtId ? C.ink : C.card, borderColor: !courtId ? C.ink : C.line, padding: 10 },
-                  ]}
-                >
-                  <Text style={{ flex: 1, fontSize: 13, fontFamily: F.bodySemi, color: !courtId ? C.cream : C.inkSoft }}>
-                    Não especificar
-                  </Text>
-                </TouchableOpacity>
-                {courts.map(c => {
-                  const on = courtId === c.id
-                  return (
-                    <TouchableOpacity
-                      key={c.id}
-                      onPress={() => setCourtId(c.id)}
-                      activeOpacity={0.85}
-                      style={[
-                        s.venueRow,
-                        { backgroundColor: on ? C.ink : C.card, borderColor: on ? C.ink : C.line, padding: 10 },
-                      ]}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 13, fontFamily: F.bodyBold, color: on ? C.cream : C.ink }}>{c.nome}</Text>
-                        <Text style={{ fontSize: 11, color: on ? 'rgba(243,239,230,0.55)' : C.inkSoft, fontFamily: F.body, marginTop: 2 }}>
-                          {c.is_indoor ? 'Coberta' : 'Descoberta'}{c.surface ? ` · ${c.surface}` : ''}
-                        </Text>
-                      </View>
-                      {on ? <Ionicons name="checkmark" size={14} color={C.lime} /> : null}
-                    </TouchableOpacity>
-                  )
-                })}
-              </View>
-            </View>
-          ) : null}
-
           <View style={s.toggleRow}>
             <View style={{ flex: 1 }}>
               <Text style={s.toggleTitle}>Quadra já reservada</Text>
@@ -383,9 +347,14 @@ export default function CriarScreen() {
             </View>
           ) : null}
 
-          <Btn fullWidth onPress={submit} disabled={submitting} style={{ backgroundColor: sportColor === C.ink ? C.lime : sportColor }}>
-            {submitting ? 'Criando…' : 'Publicar jogo'}
-          </Btn>
+          <TouchableOpacity
+            onPress={submit}
+            disabled={submitting}
+            activeOpacity={0.85}
+            style={[s.publishBtn, { backgroundColor: sportColor === C.ink ? C.lime : sportColor }]}
+          >
+            <Text style={s.publishBtnText}>{submitting ? 'Criando…' : 'Publicar jogo'}</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
@@ -399,13 +368,9 @@ const s = StyleSheet.create({
 
   scroll: { padding: 20, gap: 24, paddingBottom: 40 },
 
-  sportRow: {
-    flexDirection: 'row', alignItems: 'center', borderRadius: 20, borderWidth: 2, overflow: 'hidden',
-  },
-  sportBar: { width: 6, alignSelf: 'stretch' },
-  checkCircle: {
-    width: 22, height: 22, borderRadius: 11, backgroundColor: C.lime,
-    alignItems: 'center', justifyContent: 'center', marginRight: 14,
+  sportBtn: {
+    flex: 1, paddingVertical: 14, borderRadius: 18, borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center',
   },
 
   dayCard: {
@@ -417,11 +382,6 @@ const s = StyleSheet.create({
   minCard: { flex: 1, padding: 8, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', gap: 2 },
 
   vacancyCard: { flex: 1, padding: 8, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', gap: 2 },
-
-  venueRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 12, borderRadius: 14, borderWidth: 1.5,
-  },
   helper: { marginTop: 6, fontSize: 11, color: C.inkSoft, fontFamily: F.body },
 
   toggleRow: {
@@ -440,4 +400,10 @@ const s = StyleSheet.create({
   errorBox: {
     padding: 12, borderRadius: 12, backgroundColor: `${C.coral}1A`,
   },
+
+  publishBtn: {
+    borderRadius: 999, paddingVertical: 16, alignItems: 'center',
+    shadowColor: C.lime, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.45, shadowRadius: 16, elevation: 6,
+  },
+  publishBtnText: { fontFamily: F.headingBold, fontSize: 16, color: C.ink },
 })

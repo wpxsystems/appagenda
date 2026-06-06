@@ -13,5 +13,8 @@ config.resolver.nodeModulesPaths = [
 ];
 config.resolver.disableHierarchicalLookup = true;
 config.resolver.unstable_enablePackageExports = true;
+config.resolver.blockList = [
+  new RegExp(`${path.resolve(workspaceRoot, 'node_modules/.pnpm').replace(/\\/g, '\\\\')}/.*`),
+];
 
 module.exports = config;

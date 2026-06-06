@@ -44,7 +44,7 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Text style={styles.eyebrow}>Racket App</Text>
+            <Text style={styles.eyebrow}>PlayNet</Text>
             <Text style={styles.title}>Bem-vindo de volta</Text>
             <Text style={styles.subtitle}>Entre para encontrar jogos perto de você</Text>
           </View>

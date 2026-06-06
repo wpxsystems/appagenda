@@ -5,9 +5,16 @@ const { User, SportProfile, Jogo, Participacao, Venue, UserLocation, Cidade, seq
 const AppError = require('../utils/AppError');
 const withUserCtx = require('../utils/withUserCtx');
 
+const timeSlotSchema = z.object({ from: z.string(), to: z.string() });
 const availabilitySchema = z.record(
   z.enum(['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom']),
-  z.object({ active: z.boolean(), from: z.string(), to: z.string() }).optional(),
+  z.object({
+    active: z.boolean(),
+    // suporta múltiplos slots ou formato legado (from/to direto)
+    slots: z.array(timeSlotSchema).optional(),
+    from: z.string().optional(),
+    to: z.string().optional(),
+  }).optional(),
 );
 
 exports.getMe = asyncHandler(async (req, res) => {
@@ -101,6 +108,16 @@ exports.updateLocation = asyncHandler(async (req, res) => {
   res.json({ cidade_id, nome: cidade.nome, estado: cidade.estado });
 });
 
+exports.uploadAvatar = asyncHandler(async (req, res) => {
+  if (!req.file) throw new AppError('Nenhum arquivo enviado', 400);
+
+  const baseUrl = process.env.BASE_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+  const avatar_url = `${baseUrl}/uploads/avatars/${req.file.filename}`;
+
+  await User.update({ avatar_url }, { where: { id: req.auth.userId } });
+  res.json({ avatar_url });
+});
+
 exports.getMyGames = asyncHandler(async (req, res) => {
   const participacoes = await Participacao.findAll({
     where: { user_id: req.auth.userId },
@@ -112,22 +129,24 @@ exports.getMyGames = asyncHandler(async (req, res) => {
     order: [[{ model: Jogo, as: 'jogo' }, 'scheduled_at', 'ASC']],
   });
 
-  const jogos = participacoes.map((p) => {
-    const j = p.jogo;
-    return {
-      id: j.id,
-      sport: j.sport,
-      scheduled_at: j.scheduled_at,
-      duration_minutes: j.duration_minutes,
-      vacancies_total: j.vacancies_total,
-      status: j.status,
-      court_reserved: j.court_reserved,
-      venue_nome: j.venue?.nome ?? null,
-      venue_endereco: j.venue?.endereco ?? null,
-      creator_id: j.creator_id,
-      is_creator: j.creator_id === req.auth.userId,
-    };
-  });
+  const jogos = participacoes
+    .filter((p) => p.jogo != null)
+    .map((p) => {
+      const j = p.jogo;
+      return {
+        id: j.id,
+        sport: j.sport,
+        scheduled_at: j.scheduled_at,
+        duration_minutes: j.duration_minutes,
+        vacancies_total: j.vacancies_total,
+        status: j.status,
+        court_reserved: j.court_reserved,
+        venue_nome: j.venue?.nome ?? null,
+        venue_endereco: j.venue?.endereco ?? null,
+        creator_id: j.creator_id,
+        is_creator: j.creator_id === req.auth.userId,
+      };
+    });
 
   res.json(jogos);
 });
