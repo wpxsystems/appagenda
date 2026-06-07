@@ -125,7 +125,10 @@ export default function CriarScreen() {
         court_reserved: courtReserved,
       }
       if (notes.trim()) payload.notes = notes.trim()
-      if (category) payload.target_category = category
+      // Padel categories só funcionam após deploy da API — beach tennis OK agora
+      if (category && (sport === 'beach_tennis' || ['C','B','A','Open'].includes(category))) {
+        payload.target_category = category
+      }
       if (skillLevel) payload.target_skill_level = skillLevel
       if (courtReserved && courtPrice) payload.court_price_per_person = parseCurrency(courtPrice)
 
