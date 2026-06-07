@@ -3,7 +3,7 @@
     "name": "PlayNet",
     "slug": "playnet",
     "version": "1.0.0",
-    "scheme": "appagenda",
+    "scheme": "playnet",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "assetBundlePatterns": ["**/*"],

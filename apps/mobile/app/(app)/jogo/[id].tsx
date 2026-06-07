@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
-  StatusBar,
+  StatusBar, Share,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useToast } from '../../../components/Toast'
@@ -189,6 +189,29 @@ export default function JogoDetailScreen() {
     })
   }
 
+  async function shareGame() {
+    if (!jogo) return
+    const sportLabel = sportLabels[jogo.sport as keyof typeof sportLabels] ?? jogo.sport
+    const date = new Date(jogo.scheduled_at)
+    const dateStr = date.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
+    const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    const venue = jogo.venue_nome ?? 'Quadra a definir'
+    const spots = jogo.vacancies_total - jogo.participacoes.length
+
+    const message = [
+      `🎾 Partida de ${sportLabel}`,
+      `📅 ${dateStr} às ${timeStr}`,
+      `📍 ${venue}`,
+      spots > 0 ? `✅ ${spots} vaga${spots !== 1 ? 's' : ''} disponível` : '⚠️ Jogo completo',
+      '',
+      'Baixe o PlayNet e entre nesta partida!',
+    ].join('\n')
+
+    try {
+      await Share.share({ message })
+    } catch { /* ignore */ }
+  }
+
   function leaveGame() {
     showConfirm({
       title: 'Sair da partida',
@@ -289,6 +312,11 @@ export default function JogoDetailScreen() {
             </View>
           )}
         </View>
+
+        {/* Botão compartilhar — canto direito */}
+        <TouchableOpacity onPress={shareGame} style={s.shareBtn} activeOpacity={0.8}>
+          <Ionicons name="share-outline" size={20} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -527,6 +555,13 @@ const s = StyleSheet.create({
     paddingBottom: 16,
   },
   backBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)',
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  },
+  shareBtn: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(0,0,0,0.35)',
     borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)',
