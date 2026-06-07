@@ -237,24 +237,23 @@ export default function DescobrirScreen() {
   }
 
   const { showToast, showConfirm } = useToast()
-  const firstName = user?.name?.split(' ')[0] ?? ''
-
   return (
     <Screen>
       {/* Header */}
       <View style={s.header}>
-        <Text style={s.greeting}>Oi, {firstName}</Text>
-        <TouchableOpacity
-          onPress={() => setCidadeModal(true)}
-          activeOpacity={0.7}
-          style={s.locationRow}
-        >
-          <Ionicons name="location-outline" size={13} color={C.inkSoft} />
-          <Text style={s.locationText} numberOfLines={1}>
-            {cidadeNome || 'Selecionar cidade'}
-          </Text>
-          <Ionicons name="chevron-down" size={11} color={C.inkSoft} />
-        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity
+            onPress={() => setCidadeModal(true)}
+            activeOpacity={0.7}
+            style={s.locationRow}
+          >
+            <Ionicons name="location-outline" size={13} color={C.inkSoft} />
+            <Text style={s.locationText} numberOfLines={1}>
+              {cidadeNome || 'Selecionar cidade'}
+            </Text>
+            <Ionicons name="chevron-down" size={11} color={C.inkSoft} />
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => router.push('/(app)/criar' as never)}
@@ -381,12 +380,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 10, paddingBottom: 14,
     flexDirection: 'row', alignItems: 'center', gap: 8,
   },
-  greeting: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
   locationRow: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 4,
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'flex-start', gap: 4,
   },
-  locationText: { fontSize: 13, color: C.inkSoft, fontFamily: F.bodySemi },
+  locationText: { fontSize: 14, color: C.ink, fontFamily: F.bodyBold },
   createBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: C.lime, borderRadius: 999,

@@ -500,7 +500,14 @@ export default function PerfilScreen() {
                     onPress={() => toggleDay(key)}
                     style={s.dayCardHeader}
                   >
-                    <Text style={[s.dayCardLabel, on && { color: C.ink }]}>{full}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.dayCardLabel, on && { color: C.ink }]}>{full}</Text>
+                      {slot?.slots?.length ? (
+                        <Text style={s.dayCardSummary} numberOfLines={1}>
+                          {slot.slots.map(r => `${r.from}–${r.to}`).join('  ·  ')}
+                        </Text>
+                      ) : null}
+                    </View>
                     <View style={[s.toggle, { backgroundColor: on ? C.lime : C.line }]}>
                       <View style={[s.toggleThumb, { transform: [{ translateX: on ? 18 : 2 }] }]} />
                     </View>
@@ -704,6 +711,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
   },
   dayCardLabel: { fontSize: 15, fontFamily: F.bodySemi, color: C.inkSoft },
+  dayCardSummary: { fontSize: 12, fontFamily: F.bodySemi, color: C.inkSoft, marginTop: 2 },
   toggle: {
     width: 40, height: 24, borderRadius: 12,
     justifyContent: 'center',

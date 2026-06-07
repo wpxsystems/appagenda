@@ -123,7 +123,6 @@ export default function MeusJogosScreen() {
   return (
     <Screen>
       <View style={s.headerWrap}>
-        <Text style={s.eyebrow}>{user?.name?.split(' ')[0]?.toUpperCase() ?? ''}</Text>
         <Text style={s.title}>Meus jogos</Text>
 
         <View style={s.tabRow}>

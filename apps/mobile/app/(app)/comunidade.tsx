@@ -138,7 +138,6 @@ export default function ComunidadeScreen() {
   return (
     <Screen>
       <View style={s.headerWrap}>
-        <Text style={s.eyebrow}>{user?.name?.split(' ')[0]?.toUpperCase() ?? ''}</Text>
         <Text style={s.title}>Comunidade</Text>
         <Text style={s.subtitle}>Conectar pessoas é o nosso propósito</Text>
 

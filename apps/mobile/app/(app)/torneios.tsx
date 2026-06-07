@@ -18,8 +18,8 @@ export default function TorneiosScreen() {
 }
 
 const s = StyleSheet.create({
-  header: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
-  title: { fontFamily: F.headingBold, fontSize: 26, color: C.ink, letterSpacing: -0.5 },
+  header: { padding: 20, paddingBottom: 4 },
+  title: { fontFamily: F.headingBold, fontSize: 26, color: C.ink, letterSpacing: -0.5, marginTop: 2 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingBottom: 80 },
   emptyTitle: { fontFamily: F.headingBold, fontSize: 17, color: C.ink },
   emptySub: { fontSize: 13, color: C.inkSoft, fontFamily: F.body, textAlign: 'center', paddingHorizontal: 40 },
