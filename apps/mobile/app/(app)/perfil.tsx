@@ -101,8 +101,13 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
   const [birthDisplay, setBirthDisplay] = useState('')
   const [cidades, setCidades] = useState<Cidade[]>([])
   const [cidadeModal, setCidadeModal] = useState(false)
+  const [calOpen, setCalOpen] = useState(false)
+  const [calMonth, setCalMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d })
   const [saving, setSaving] = useState(false)
   const [inlineError, setInlineError] = useState('')
+
+  const PT_WEEKDAY = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
+  const PT_MONTH = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
   useEffect(() => {
     if (visible) {
@@ -231,18 +236,22 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
               </View>
             </View>
 
-            {/* Data de nascimento */}
+            {/* Data de nascimento — calendário */}
             <View>
               <Text style={ep.label}>Data de nascimento <Text style={ep.optional}>(opcional)</Text></Text>
-              <TextInput
-                style={ep.input}
-                value={birthDisplay}
-                onChangeText={v => setBirthDisplay(fmtBirth(v))}
-                placeholder="DD/MM/AAAA"
-                placeholderTextColor={C.inkSoft}
-                keyboardType="numeric"
-                maxLength={10}
-              />
+              <TouchableOpacity onPress={() => setCalOpen(true)} activeOpacity={0.8} style={ep.cityPicker}>
+                <Ionicons name="calendar-outline" size={16} color={birthDisplay ? C.ink : C.inkSoft} />
+                <Text style={[ep.cityPickerText, !birthDisplay && { color: C.inkSoft }]}>
+                  {birthDisplay || 'Selecionar data'}
+                </Text>
+                {birthDisplay ? (
+                  <TouchableOpacity onPress={() => setBirthDisplay('')} hitSlop={8}>
+                    <Ionicons name="close-circle" size={16} color={C.inkSoft} />
+                  </TouchableOpacity>
+                ) : (
+                  <Ionicons name="chevron-forward" size={14} color={C.inkSoft} />
+                )}
+              </TouchableOpacity>
             </View>
 
             {/* Gênero */}
@@ -301,6 +310,78 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
               </Btn>
             </View>
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Calendário de nascimento */}
+      <Modal visible={calOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCalOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: C.cream }}>
+          <View style={ep.header}>
+            <Text style={ep.title}>Data de nascimento</Text>
+            <TouchableOpacity onPress={() => setCalOpen(false)} hitSlop={10}>
+              <Ionicons name="close" size={22} color={C.inkSoft} />
+            </TouchableOpacity>
+          </View>
+          <View style={{ padding: 16 }}>
+            {/* Navegação de mês */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <TouchableOpacity onPress={() => setCalMonth(m => { const d = new Date(m); d.setMonth(d.getMonth()-1); return d })} hitSlop={8}>
+                <Ionicons name="chevron-back" size={22} color={C.ink} />
+              </TouchableOpacity>
+              <Text style={{ fontFamily: F.bodyBold, fontSize: 17, color: C.ink }}>
+                {PT_MONTH[calMonth.getMonth()]} {calMonth.getFullYear()}
+              </Text>
+              <TouchableOpacity onPress={() => setCalMonth(m => { const d = new Date(m); d.setMonth(d.getMonth()+1); return d })} hitSlop={8}>
+                <Ionicons name="chevron-forward" size={22} color={C.ink} />
+              </TouchableOpacity>
+            </View>
+            {/* Dias da semana */}
+            <View style={{ flexDirection: 'row', marginBottom: 4 }}>
+              {PT_WEEKDAY.map(d => (
+                <Text key={d} style={{ flex: 1, textAlign: 'center', fontSize: 12, fontFamily: F.bodySemi, color: C.inkSoft, paddingBottom: 8 }}>{d}</Text>
+              ))}
+            </View>
+            {/* Grade de dias */}
+            {(() => {
+              const maxDate = new Date(); // data de nascimento não pode ser futura
+              const firstDay = calMonth.getDay()
+              const daysInMonth = new Date(calMonth.getFullYear(), calMonth.getMonth()+1, 0).getDate()
+              const cells: (number|null)[] = [...Array(firstDay).fill(null), ...Array.from({length:daysInMonth},(_,i)=>i+1)]
+              while (cells.length % 7 !== 0) cells.push(null)
+              const weeks: (number|null)[][] = []
+              for (let i=0;i<cells.length;i+=7) weeks.push(cells.slice(i,i+7))
+              return weeks.map((week,wi) => (
+                <View key={wi} style={{ flexDirection: 'row', marginBottom: 4 }}>
+                  {week.map((day, di) => {
+                    if (!day) return <View key={di} style={{ flex:1, aspectRatio:1 }} />
+                    const date = new Date(calMonth.getFullYear(), calMonth.getMonth(), day)
+                    const isFuture = date > maxDate
+                    const selectedDisplay = birthDisplay
+                    const selDate = selectedDisplay ? (() => { const p = selectedDisplay.split('/'); return p.length===3 ? new Date(+p[2],+p[1]-1,+p[0]) : null })() : null
+                    const isSelected = selDate?.toDateString() === date.toDateString()
+                    return (
+                      <TouchableOpacity key={di} disabled={isFuture} activeOpacity={0.7}
+                        onPress={() => {
+                          const dd = String(day).padStart(2,'0')
+                          const mm = String(calMonth.getMonth()+1).padStart(2,'0')
+                          const yyyy = calMonth.getFullYear()
+                          setBirthDisplay(`${dd}/${mm}/${yyyy}`)
+                          setCalOpen(false)
+                        }}
+                        style={{ flex:1, aspectRatio:1, alignItems:'center', justifyContent:'center', borderRadius:999,
+                          backgroundColor: isSelected ? C.ink : 'transparent', margin: 2 }}
+                      >
+                        <Text style={{ fontSize:15, fontFamily: isSelected ? F.bodyBold : F.bodySemi,
+                          color: isFuture ? C.line : isSelected ? C.cream : C.ink }}>
+                          {day}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  })}
+                </View>
+              ))
+            })()}
+          </View>
         </View>
       </Modal>
 
