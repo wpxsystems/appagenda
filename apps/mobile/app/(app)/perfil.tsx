@@ -57,6 +57,39 @@ interface ProfileData {
   notifications_enabled: boolean
 }
 
+// Formata telefone: dígitos → (XX) XXXXX-XXXX
+function fmtPhone(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 11)
+  if (d.length === 0) return ''
+  if (d.length <= 2) return `(${d}`
+  if (d.length <= 7) return `(${d.slice(0,2)}) ${d.slice(2)}`
+  if (d.length <= 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`
+  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7,11)}`
+}
+
+// Formata data: dígitos → DD/MM/AAAA
+function fmtBirth(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 8)
+  if (d.length <= 2) return d
+  if (d.length <= 4) return `${d.slice(0,2)}/${d.slice(2)}`
+  return `${d.slice(0,2)}/${d.slice(2,4)}/${d.slice(4)}`
+}
+
+// DD/MM/AAAA → AAAA-MM-DD para a API
+function birthToApi(display: string): string {
+  const p = display.split('/')
+  if (p.length === 3 && p[2].length === 4) return `${p[2]}-${p[1]}-${p[0]}`
+  return ''
+}
+
+// AAAA-MM-DD → DD/MM/AAAA para exibição
+function birthToDisplay(api: string): string {
+  if (!api) return ''
+  const p = api.split('-')
+  if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`
+  return api
+}
+
 function EditProfileModal({ visible, initial, onClose, onSaved }: {
   visible: boolean
   initial: ProfileData
@@ -65,6 +98,8 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
 }) {
   const { showToast } = useToast()
   const [form, setForm] = useState<ProfileData>(initial)
+  const [phoneDisplay, setPhoneDisplay] = useState('')
+  const [birthDisplay, setBirthDisplay] = useState('')
   const [cidades, setCidades] = useState<Cidade[]>([])
   const [cidadeModal, setCidadeModal] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -72,6 +107,8 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
   useEffect(() => {
     if (visible) {
       setForm(initial)
+      setPhoneDisplay(fmtPhone(initial.phone))
+      setBirthDisplay(birthToDisplay(initial.data_nascimento))
       apiGet<Cidade[]>('/cidades').then(setCidades).catch(() => {})
     }
   }, [visible])
@@ -87,20 +124,21 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
     }
     setSaving(true)
     try {
+      const apiDate = birthToApi(birthDisplay)
       await Promise.all([
         apiPatch('/me', {
           nome: form.nome.trim(),
           nickname: form.nickname.trim() || null,
           bio: form.bio.trim() || null,
-          phone: form.phone.trim() || null,
+          phone: phoneDisplay || null,
           genero: form.genero || undefined,
-          data_nascimento: form.data_nascimento || null,
+          data_nascimento: apiDate || null,
           notifications_enabled: form.notifications_enabled,
         }),
         form.cidade_id ? apiPatch('/me/location', { cidade_id: form.cidade_id }) : Promise.resolve(),
       ])
       showToast({ type: 'success', title: 'Perfil atualizado!' })
-      onSaved(form)
+      onSaved({ ...form, phone: phoneDisplay, data_nascimento: apiDate })
     } catch (e: unknown) {
       showToast({ type: 'error', title: 'Erro ao salvar', message: (e as { message?: string })?.message })
     } finally {
@@ -119,7 +157,8 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={{ padding: 20, gap: 20 }}>
+          <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }}>
+
             {/* Nome */}
             <View>
               <Text style={ep.label}>Nome completo</Text>
@@ -129,21 +168,25 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
                 onChangeText={v => set('nome', v)}
                 placeholder="Seu nome"
                 placeholderTextColor={C.inkSoft}
+                autoCapitalize="words"
               />
             </View>
 
             {/* Apelido */}
             <View>
               <Text style={ep.label}>Apelido <Text style={ep.optional}>(opcional)</Text></Text>
-              <View style={ep.inputPrefix}>
-                <Text style={ep.prefixText}>@</Text>
+              <View style={ep.prefixWrap}>
+                <View style={ep.prefixBox}>
+                  <Text style={ep.prefixAt}>@</Text>
+                </View>
                 <TextInput
-                  style={[ep.input, { flex: 1, marginBottom: 0 }]}
+                  style={ep.prefixInput}
                   value={form.nickname}
-                  onChangeText={v => set('nickname', v.replace(/\s/g, '').toLowerCase())}
+                  onChangeText={v => set('nickname', v.replace(/[^a-z0-9_.]/gi, '').toLowerCase())}
                   placeholder="seu_apelido"
                   placeholderTextColor={C.inkSoft}
                   autoCapitalize="none"
+                  autoCorrect={false}
                 />
               </View>
             </View>
@@ -152,27 +195,34 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
             <View>
               <Text style={ep.label}>Bio <Text style={ep.optional}>(opcional)</Text></Text>
               <TextInput
-                style={[ep.input, { height: 80, textAlignVertical: 'top', paddingTop: 12 }]}
+                style={ep.textarea}
                 value={form.bio}
                 onChangeText={v => set('bio', v)}
                 placeholder="Fale um pouco sobre você..."
                 placeholderTextColor={C.inkSoft}
                 multiline
                 maxLength={200}
+                textAlignVertical="top"
               />
             </View>
 
             {/* Telefone */}
             <View>
               <Text style={ep.label}>Telefone <Text style={ep.optional}>(opcional)</Text></Text>
-              <TextInput
-                style={ep.input}
-                value={form.phone}
-                onChangeText={v => set('phone', v)}
-                placeholder="+55 (48) 99999-9999"
-                placeholderTextColor={C.inkSoft}
-                keyboardType="phone-pad"
-              />
+              <View style={ep.prefixWrap}>
+                <View style={ep.prefixBox}>
+                  <Text style={ep.prefixAt}>🇧🇷</Text>
+                </View>
+                <TextInput
+                  style={ep.prefixInput}
+                  value={phoneDisplay}
+                  onChangeText={v => setPhoneDisplay(fmtPhone(v))}
+                  placeholder="(48) 99999-9999"
+                  placeholderTextColor={C.inkSoft}
+                  keyboardType="phone-pad"
+                  maxLength={15}
+                />
+              </View>
             </View>
 
             {/* Data de nascimento */}
@@ -180,11 +230,11 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
               <Text style={ep.label}>Data de nascimento <Text style={ep.optional}>(opcional)</Text></Text>
               <TextInput
                 style={ep.input}
-                value={form.data_nascimento}
-                onChangeText={v => set('data_nascimento', v)}
-                placeholder="AAAA-MM-DD"
+                value={birthDisplay}
+                onChangeText={v => setBirthDisplay(fmtBirth(v))}
+                placeholder="DD/MM/AAAA"
                 placeholderTextColor={C.inkSoft}
-                keyboardType="numbers-and-punctuation"
+                keyboardType="numeric"
                 maxLength={10}
               />
             </View>
@@ -232,9 +282,11 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
               />
             </View>
 
-            <Btn fullWidth onPress={save} disabled={saving}>
-              {saving ? 'Salvando…' : 'Salvar alterações'}
-            </Btn>
+            <View style={{ marginTop: 4 }}>
+              <Btn fullWidth onPress={save} disabled={saving}>
+                {saving ? 'Salvando…' : 'Salvar alterações'}
+              </Btn>
+            </View>
           </ScrollView>
         </View>
       </Modal>
@@ -1153,19 +1205,33 @@ const ep = StyleSheet.create({
     padding: 20, borderBottomWidth: 1, borderBottomColor: C.line,
   },
   title: { fontFamily: F.headingBold, fontSize: 20, color: C.ink, letterSpacing: -0.3 },
-  label: { fontSize: 11, fontFamily: F.bodyBold, color: C.inkSoft, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 },
-  optional: { fontFamily: F.body, textTransform: 'none', letterSpacing: 0 },
+  label: { fontSize: 11, fontFamily: F.bodyBold, color: C.inkSoft, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 },
+  optional: { fontFamily: F.body, textTransform: 'none', letterSpacing: 0, fontSize: 11 },
   input: {
     backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
     borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13,
     fontSize: 15, fontFamily: F.bodySemi, color: C.ink,
   },
-  inputPrefix: {
-    flexDirection: 'row', alignItems: 'center', gap: 0,
+  textarea: {
     backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
-    borderRadius: 14, paddingLeft: 14, overflow: 'hidden',
+    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13,
+    fontSize: 15, fontFamily: F.bodySemi, color: C.ink, height: 76,
   },
-  prefixText: { fontSize: 15, fontFamily: F.bodySemi, color: C.inkSoft },
+  prefixWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
+    borderRadius: 14, overflow: 'hidden',
+  },
+  prefixBox: {
+    paddingHorizontal: 12, paddingVertical: 13,
+    borderRightWidth: 1.5, borderRightColor: C.line,
+    backgroundColor: C.cream, alignItems: 'center', justifyContent: 'center',
+  },
+  prefixAt: { fontSize: 15, fontFamily: F.bodyBold, color: C.inkSoft },
+  prefixInput: {
+    flex: 1, paddingHorizontal: 14, paddingVertical: 13,
+    fontSize: 15, fontFamily: F.bodySemi, color: C.ink,
+  },
   genderChip: {
     flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5,
     borderColor: C.line, backgroundColor: C.card, alignItems: 'center',
