@@ -41,10 +41,10 @@ interface Game {
 }
 
 const FILTERS = [
-  { key: 'all',          label: 'Todos' },
-  { key: 'padel',        label: 'Padel' },
-  { key: 'beach_tennis', label: 'Beach' },
-  { key: 'tennis',       label: 'Tênis' },
+  { key: 'all',          label: 'Todos', color: null },
+  { key: 'padel',        label: 'Padel', color: 'padel' },
+  { key: 'beach_tennis', label: 'Beach', color: 'beach_tennis' },
+  { key: 'tennis',       label: 'Tênis', color: 'tennis' },
 ] as const
 
 const AVATAR_COLORS = ['#2E6F9E','#D4880A','#B03A2E','#5B7A4C','#8A5A9E','#C2607F','#3A7A6E','#A0622A']
@@ -299,6 +299,7 @@ export default function DescobrirScreen() {
           const count = counts[f.key] ?? 0
           const isFirst = idx === 0
           const isLast = idx === FILTERS.length - 1
+          const activeBg = f.color ? sportColors[f.color as keyof typeof sportColors] : C.ink
           return (
             <TouchableOpacity
               key={f.key}
@@ -308,7 +309,7 @@ export default function DescobrirScreen() {
                 s.filterSegment,
                 isFirst && s.filterSegmentFirst,
                 isLast && s.filterSegmentLast,
-                active && s.filterSegmentActive,
+                active && { backgroundColor: activeBg },
               ]}
             >
               <Text style={[s.filterSegmentText, active && s.filterSegmentTextActive]}>
