@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, StyleProp, ViewStyle, TextInputProps, Image } from 'react-native'
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, StyleProp, ViewStyle, TextStyle, TextInputProps, Image } from 'react-native'
 import { colors as C, fontFamily as F } from '@racket-app/ui'
 
 export { C as colors }
@@ -100,7 +100,6 @@ export function Pill({ label, active, onPress, small, count, color }: {
 }
 
 // ── SectionLabel ────────────────────────────────────────────────────
-import { StyleProp, TextStyle } from 'react-native'
 export function SectionLabel({ children, style }: { children: React.ReactNode; style?: StyleProp<TextStyle> }) {
   return <Text style={[styles.sectionLabel, style]}>{children}</Text>
 }
