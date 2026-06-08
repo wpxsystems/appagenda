@@ -1,7 +1,7 @@
 const { z } = require('zod');
 const { Op } = require('sequelize');
 const asyncHandler = require('../utils/asyncHandler');
-const { User, SportProfile, Jogo, Participacao, Venue, UserLocation, Cidade, sequelize } = require('../models');
+const { User, SportProfile, Jogo, Participacao, Venue, UserLocation, Cidade, GameRating, sequelize } = require('../models');
 const AppError = require('../utils/AppError');
 const withUserCtx = require('../utils/withUserCtx');
 
@@ -23,7 +23,29 @@ exports.getMe = asyncHandler(async (req, res) => {
   });
   if (!user) throw new AppError('Usuário não encontrado', 404);
   const availability = user.availability_json ? JSON.parse(user.availability_json) : null;
-  res.json({ ...user.toJSON(), availability });
+
+  // Estatísticas de avaliações recebidas
+  const received = await GameRating.findAll({
+    where: { rated_user_id: req.auth.userId },
+    attributes: ['score', 'badges'],
+  });
+
+  let avg_score = null;
+  const badgeCounts = {};
+  if (received.length > 0) {
+    avg_score = Math.round((received.reduce((s, r) => s + r.score, 0) / received.length) * 10) / 10;
+    for (const r of received) {
+      for (const b of (r.badges ?? [])) {
+        badgeCounts[b] = (badgeCounts[b] ?? 0) + 1;
+      }
+    }
+  }
+  const top_badges = Object.entries(badgeCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([key, count]) => ({ key, count }));
+
+  res.json({ ...user.toJSON(), availability, avg_score, top_badges });
 });
 
 exports.updateMe = asyncHandler(async (req, res) => {
@@ -129,6 +151,19 @@ exports.getMyGames = asyncHandler(async (req, res) => {
     order: [[{ model: Jogo, as: 'jogo' }, 'scheduled_at', 'ASC']],
   });
 
+  const completedJogoIds = participacoes
+    .filter(p => p.jogo?.status === 'completed')
+    .map(p => p.jogo.id);
+
+  const ratedJogoIds = new Set(
+    completedJogoIds.length > 0
+      ? (await GameRating.findAll({
+          where: { rater_id: req.auth.userId, jogo_id: completedJogoIds },
+          attributes: ['jogo_id'],
+        })).map(r => r.jogo_id)
+      : []
+  );
+
   const jogos = participacoes
     .filter((p) => p.jogo != null)
     .map((p) => {
@@ -145,6 +180,7 @@ exports.getMyGames = asyncHandler(async (req, res) => {
         venue_endereco: j.venue?.endereco ?? null,
         creator_id: j.creator_id,
         is_creator: j.creator_id === req.auth.userId,
+        has_rated: ratedJogoIds.has(j.id),
       };
     });
 

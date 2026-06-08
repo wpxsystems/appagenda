@@ -140,6 +140,42 @@ exports.cancel = asyncHandler(async (req, res) => {
   res.json({ ok: true });
 });
 
+exports.confirm = asyncHandler(async (req, res) => {
+  const jogo = await Jogo.findByPk(req.params.id, {
+    include: [{ model: Participacao, as: 'participacoes' }],
+  });
+  if (!jogo) throw new AppError('Jogo não encontrado', 404);
+  if (jogo.creator_id !== req.auth.userId) throw new AppError('Apenas o organizador pode confirmar', 403);
+  if (jogo.status === 'completed') throw new AppError('Jogo já confirmado', 409);
+  if (jogo.status === 'cancelled') throw new AppError('Jogo cancelado não pode ser confirmado', 409);
+  if (new Date(jogo.scheduled_at) > new Date()) throw new AppError('Jogo ainda não ocorreu', 409);
+
+  await jogo.update({ status: 'completed' });
+
+  // Atualiza stats de todos os participantes
+  const userIds = jogo.participacoes.map(p => p.user_id);
+  await User.increment({ games_played: 1, games_attended: 1 }, { where: { id: userIds } });
+  await Participacao.update({ status: 'attended' }, { where: { jogo_id: jogo.id } });
+
+  // Notifica participantes
+  const sportLabel = { padel: 'Padel', beach_tennis: 'Beach Tennis', tennis: 'Tênis' };
+  const date = new Date(jogo.scheduled_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  const others = jogo.participacoes.filter(p => p.user_id !== req.auth.userId);
+  await Promise.all(others.map(p =>
+    withUserCtx(p.user_id, t =>
+      Notification.create({
+        user_id: p.user_id,
+        type: 'game_completed',
+        title: 'Jogo confirmado!',
+        body: `Seu jogo de ${sportLabel[jogo.sport] ?? jogo.sport} de ${date} foi confirmado. Suas estatísticas foram atualizadas.`,
+        jogo_id: jogo.id,
+      }, { transaction: t })
+    ).catch(() => {})
+  ));
+
+  res.json({ ok: true });
+});
+
 exports.leave = asyncHandler(async (req, res) => {
   const jogo = await Jogo.findByPk(req.params.id, {
     include: [{ model: Participacao, as: 'participacoes' }],

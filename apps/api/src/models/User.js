@@ -17,6 +17,8 @@ module.exports = (sequelize, DataTypes) => {
     push_token:            { type: DataTypes.STRING(255) },
     notifications_enabled: { type: DataTypes.BOOLEAN, defaultValue: true },
     availability_json:     { type: DataTypes.TEXT },
+    games_played:          { type: DataTypes.INTEGER, defaultValue: 0 },
+    games_attended:        { type: DataTypes.INTEGER, defaultValue: 0 },
   }, { tableName: 'app_user', paranoid: true, timestamps: true, underscored: true });
 
   User.associate = (m) => {

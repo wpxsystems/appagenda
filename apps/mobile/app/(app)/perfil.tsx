@@ -193,6 +193,12 @@ export default function PerfilScreen() {
   const [timePicker, setTimePicker] = useState<{ day: DayKey; idx: number; field: 'from' | 'to' } | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [stats, setStats] = useState<{
+    games_played: number
+    games_attended: number
+    avg_score: number | null
+    top_badges: { key: string; count: number }[]
+  } | null>(null)
 
   const availableSportsToAdd = ALL_SPORTS.filter(sp => !sportProfiles.find(p => p.sport === sp))
 
@@ -256,10 +262,24 @@ export default function PerfilScreen() {
 
   useEffect(() => { load() }, [load])
 
-  // Carrega avatar atual
+  // Carrega avatar e stats
   useEffect(() => {
-    apiGet<{ avatar_url?: string }>('/me')
-      .then(me => { if (me.avatar_url) setAvatarUrl(me.avatar_url) })
+    apiGet<{
+      avatar_url?: string
+      games_played?: number
+      games_attended?: number
+      avg_score?: number | null
+      top_badges?: { key: string; count: number }[]
+    }>('/me')
+      .then(me => {
+        if (me.avatar_url) setAvatarUrl(me.avatar_url)
+        setStats({
+          games_played: me.games_played ?? 0,
+          games_attended: me.games_attended ?? 0,
+          avg_score: me.avg_score ?? null,
+          top_badges: me.top_badges ?? [],
+        })
+      })
       .catch(() => {})
   }, [])
 
@@ -419,13 +439,57 @@ export default function PerfilScreen() {
 
         {/* stats */}
         <View style={s.statsRow}>
-          {[['0', 'Jogos'], ['0', 'Parceiros'], ['—', 'Comparec.']].map(([n, l]) => (
-            <View key={l} style={s.statCard}>
-              <Text style={s.statNum}>{n}</Text>
-              <Text style={s.statLabel}>{l}</Text>
-            </View>
-          ))}
+          {(() => {
+            const played = stats?.games_played ?? 0
+            const attended = stats?.games_attended ?? 0
+            const pct = played > 0 ? Math.round((attended / played) * 100) : null
+            const score = stats?.avg_score
+            return [
+              [String(played), 'Jogos'],
+              [pct !== null ? `${pct}%` : '—', 'Comparec.'],
+              [score !== null && score !== undefined ? String(score) : '—', 'Avaliação'],
+            ].map(([n, l]) => (
+              <View key={l} style={s.statCard}>
+                <Text style={s.statNum}>{n}</Text>
+                <Text style={s.statLabel}>{l}</Text>
+              </View>
+            ))
+          })()}
         </View>
+
+        {/* badges recebidos */}
+        {(stats?.top_badges?.length ?? 0) > 0 ? (
+          <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+            <Text style={s.sectionLabel}>Reconhecimentos</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+              {(stats?.top_badges ?? []).map(b => {
+                const BADGE_META: Record<string, { icon: string; label: string }> = {
+                  pontual:      { icon: '⏰', label: 'Pontual' },
+                  respeitoso:   { icon: '🤝', label: 'Respeitoso' },
+                  simpatico:    { icon: '😄', label: 'Simpático' },
+                  competitivo:  { icon: '🔥', label: 'Competitivo' },
+                  comprometido: { icon: '🎯', label: 'Comprometido' },
+                  comunicativo: { icon: '💬', label: 'Comunicativo' },
+                  esportivo:    { icon: '🏅', label: 'Esportivo' },
+                  parceiro:     { icon: '👥', label: 'Ótimo parceiro' },
+                  energia:      { icon: '⚡', label: 'Energia positiva' },
+                  jogaria:      { icon: '⭐', label: 'Jogaria novamente' },
+                }
+                const meta = BADGE_META[b.key]
+                if (!meta) return null
+                return (
+                  <View key={b.key} style={s.badgeChip}>
+                    <Text style={s.badgeChipIcon}>{meta.icon}</Text>
+                    <Text style={s.badgeChipLabel}>{meta.label}</Text>
+                    <View style={s.badgeChipCount}>
+                      <Text style={s.badgeChipCountText}>{b.count}</Text>
+                    </View>
+                  </View>
+                )
+              })}
+            </View>
+          </View>
+        ) : null}
 
         {/* sports */}
         <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
@@ -688,6 +752,20 @@ const s = StyleSheet.create({
   saveBtn: {
     paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999,
   },
+
+  badgeChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: 999, borderWidth: 1.5, borderColor: C.line,
+    backgroundColor: C.card,
+  },
+  badgeChipIcon: { fontSize: 14 },
+  badgeChipLabel: { fontSize: 12, fontFamily: F.bodySemi, color: C.ink },
+  badgeChipCount: {
+    backgroundColor: C.ink, borderRadius: 999,
+    paddingHorizontal: 6, paddingVertical: 1, minWidth: 20, alignItems: 'center',
+  },
+  badgeChipCountText: { fontSize: 10, fontFamily: F.bodyBold, color: C.lime },
 
   emptySports: {
     padding: 16, borderRadius: 16, backgroundColor: C.card, borderWidth: 1.5,

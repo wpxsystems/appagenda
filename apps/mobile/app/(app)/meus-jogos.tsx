@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, FlatList } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useAuth } from '../../lib/auth-context'
-import { apiGet } from '../../lib/api'
-import { Btn, Pill, Screen, colors as C, fonts as F } from '../../components/ui'
+import { apiGet, apiPost } from '../../lib/api'
+import { useToast } from '../../components/Toast'
+import { Avatar, Btn, Pill, Screen, colors as C, fonts as F } from '../../components/ui'
 import { sportColors, sportLabels } from '@racket-app/ui'
 
 interface MyGame {
@@ -20,7 +21,31 @@ interface MyGame {
   venue_endereco: string | null
   creator_id: string
   is_creator: boolean
+  has_rated: boolean
 }
+
+interface Participant {
+  id: string
+  nome: string
+  avatar_url: string | null
+}
+
+const BADGES = [
+  { key: 'pontual',      label: 'Pontual',                     icon: '⏰' },
+  { key: 'respeitoso',   label: 'Respeitoso',                  icon: '🤝' },
+  { key: 'simpatico',    label: 'Simpático',                   icon: '😄' },
+  { key: 'competitivo',  label: 'Competitivo na medida certa', icon: '🔥' },
+  { key: 'comprometido', label: 'Comprometido',                icon: '🎯' },
+  { key: 'comunicativo', label: 'Comunicativo',                icon: '💬' },
+  { key: 'esportivo',    label: 'Esportivo',                   icon: '🏅' },
+  { key: 'parceiro',     label: 'Ótimo parceiro de dupla',     icon: '👥' },
+  { key: 'energia',      label: 'Energia positiva',            icon: '⚡' },
+  { key: 'jogaria',      label: 'Jogaria novamente',           icon: '⭐' },
+] as const
+
+type BadgeKey = typeof BADGES[number]['key']
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(dt: string) {
   const d = new Date(dt)
@@ -36,15 +61,200 @@ function formatTime(dt: string) {
   return new Date(dt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
-function GameCard({ g, onPress }: { g: MyGame; onPress: () => void }) {
+// ── RatingModal ───────────────────────────────────────────────────────────────
+
+interface PlayerRating {
+  score: number
+  badges: BadgeKey[]
+}
+
+function StarRow({ score, onChange }: { score: number; onChange: (s: number) => void }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 6 }}>
+      {[1, 2, 3, 4, 5].map(n => (
+        <TouchableOpacity key={n} onPress={() => onChange(n)} hitSlop={6} activeOpacity={0.7}>
+          <Ionicons
+            name={n <= score ? 'star' : 'star-outline'}
+            size={26}
+            color={n <= score ? '#F5A623' : C.line}
+          />
+        </TouchableOpacity>
+      ))}
+    </View>
+  )
+}
+
+function RatingModal({ visible, jogoId, userId, onClose, onDone }: {
+  visible: boolean
+  jogoId: string
+  userId: string
+  onClose: () => void
+  onDone: () => void
+}) {
+  const { showToast } = useToast()
+  const [participants, setParticipants] = useState<Participant[]>([])
+  const [loadingParts, setLoadingParts] = useState(false)
+  const [ratings, setRatings] = useState<Record<string, PlayerRating>>({})
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!visible) return
+    setLoadingParts(true)
+    setRatings({})
+    apiGet<{ participacoes: Array<{ user_id: string; user: { id: string; nome: string; avatar_url: string | null } }> }>(`/jogos/${jogoId}`)
+      .then(data => {
+        const others = data.participacoes
+          .filter(p => p.user_id !== userId)
+          .map(p => ({ id: p.user.id, nome: p.user.nome, avatar_url: p.user.avatar_url }))
+        setParticipants(others)
+        const init: Record<string, PlayerRating> = {}
+        others.forEach(p => { init[p.id] = { score: 0, badges: [] } })
+        setRatings(init)
+      })
+      .catch(() => {})
+      .finally(() => setLoadingParts(false))
+  }, [visible, jogoId, userId])
+
+  function setScore(playerId: string, score: number) {
+    setRatings(prev => ({ ...prev, [playerId]: { ...prev[playerId], score } }))
+  }
+
+  function toggleBadge(playerId: string, badge: BadgeKey) {
+    setRatings(prev => {
+      const cur = prev[playerId]?.badges ?? []
+      const has = cur.includes(badge)
+      const next = has ? cur.filter(b => b !== badge) : cur.length < 3 ? [...cur, badge] : cur
+      return { ...prev, [playerId]: { ...prev[playerId], badges: next } }
+    })
+  }
+
+  async function submit() {
+    const entries = participants
+      .map(p => ({ rated_user_id: p.id, score: ratings[p.id]?.score ?? 0, badges: ratings[p.id]?.badges ?? [] }))
+      .filter(e => e.score > 0)
+
+    if (entries.length === 0) {
+      onClose()
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      await apiPost(`/jogos/${jogoId}/ratings`, { ratings: entries })
+      showToast({ type: 'success', title: 'Avaliações enviadas!' })
+      onDone()
+    } catch (e: unknown) {
+      showToast({ type: 'error', title: 'Erro ao enviar', message: (e as { message?: string })?.message })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: C.cream }}>
+        <View style={rm.header}>
+          <Text style={rm.title}>Avaliar jogadores</Text>
+          <TouchableOpacity onPress={onClose} hitSlop={10}>
+            <Ionicons name="close" size={22} color={C.inkSoft} />
+          </TouchableOpacity>
+        </View>
+
+        {loadingParts ? (
+          <ActivityIndicator color={C.ink} style={{ marginTop: 40 }} />
+        ) : participants.length === 0 ? (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+            <Text style={{ fontFamily: F.body, color: C.inkSoft, fontSize: 14, textAlign: 'center' }}>
+              Nenhum outro jogador para avaliar neste jogo.
+            </Text>
+            <View style={{ marginTop: 20 }}>
+              <Btn onPress={onClose}>Fechar</Btn>
+            </View>
+          </View>
+        ) : (
+          <>
+            <FlatList
+              data={participants}
+              keyExtractor={p => p.id}
+              contentContainerStyle={{ padding: 16, gap: 16 }}
+              renderItem={({ item: p }) => {
+                const r = ratings[p.id] ?? { score: 0, badges: [] }
+                return (
+                  <View style={rm.playerCard}>
+                    <View style={rm.playerHeader}>
+                      <Avatar name={p.nome} size={44} imageUrl={p.avatar_url ?? undefined} />
+                      <Text style={rm.playerName}>{p.nome}</Text>
+                    </View>
+
+                    <Text style={rm.sectionLabel}>Nota</Text>
+                    <StarRow score={r.score} onChange={v => setScore(p.id, v)} />
+
+                    <Text style={[rm.sectionLabel, { marginTop: 14 }]}>
+                      Categorias <Text style={{ color: C.inkSoft, fontFamily: F.body }}>(até 3)</Text>
+                    </Text>
+                    <View style={rm.badgesWrap}>
+                      {BADGES.map(b => {
+                        const selected = r.badges.includes(b.key)
+                        const disabled = !selected && r.badges.length >= 3
+                        return (
+                          <TouchableOpacity
+                            key={b.key}
+                            onPress={() => !disabled && toggleBadge(p.id, b.key)}
+                            activeOpacity={disabled ? 1 : 0.75}
+                            style={[
+                              rm.badge,
+                              selected && rm.badgeSelected,
+                              disabled && { opacity: 0.35 },
+                            ]}
+                          >
+                            <Text style={rm.badgeIcon}>{b.icon}</Text>
+                            <Text style={[rm.badgeLabel, selected && { color: C.ink }]}>{b.label}</Text>
+                          </TouchableOpacity>
+                        )
+                      })}
+                    </View>
+                  </View>
+                )
+              }}
+            />
+            <View style={rm.footer}>
+              <Btn fullWidth onPress={submit} disabled={submitting}>
+                {submitting ? 'Enviando…' : 'Enviar avaliações'}
+              </Btn>
+              <TouchableOpacity onPress={onClose} style={{ marginTop: 10, alignItems: 'center' }}>
+                <Text style={{ fontFamily: F.bodySemi, fontSize: 13, color: C.inkSoft }}>Pular</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </View>
+    </Modal>
+  )
+}
+
+// ── GameCard ──────────────────────────────────────────────────────────────────
+
+function GameCard({ g, onPress, onConfirm, onRate, confirming }: {
+  g: MyGame
+  onPress: () => void
+  onConfirm?: () => void
+  onRate?: () => void
+  confirming?: boolean
+}) {
   const color = sportColors[g.sport as keyof typeof sportColors] ?? '#888'
   const label = sportLabels[g.sport as keyof typeof sportLabels] ?? g.sport
   const isCancelled = g.status === 'cancelled'
-  const isPast = isCancelled || new Date(g.scheduled_at) < new Date()
+  const isCompleted = g.status === 'completed'
+  const isPast = isCancelled || isCompleted || new Date(g.scheduled_at) < new Date()
+  const canConfirm = g.is_creator && !isCancelled && !isCompleted && new Date(g.scheduled_at) < new Date()
+  const canRate = isCompleted && !g.has_rated
+
+  const statusText = isCancelled ? 'Cancelado' : isCompleted ? 'Confirmado' : isPast ? 'Encerrado' : 'Em aberto'
+  const statusColor = isCompleted ? C.success : C.inkSoft
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={[s.card, { opacity: isPast ? 0.72 : 1 }]}>
-      <View style={[s.cardBar, { backgroundColor: isPast ? '#C0BDB4' : color }]} />
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={[s.card, { opacity: isPast && !isCompleted ? 0.72 : 1 }]}>
+      <View style={[s.cardBar, { backgroundColor: isCompleted ? C.success : isPast ? '#C0BDB4' : color }]} />
       <View style={{ flex: 1, padding: 14 }}>
         <View style={s.cardTop}>
           <View style={s.cardChips}>
@@ -58,9 +268,7 @@ function GameCard({ g, onPress }: { g: MyGame; onPress: () => void }) {
               </View>
             ) : null}
           </View>
-          <Text style={[s.statusText, { color: isPast ? C.inkSoft : C.inkSoft }]}>
-            {isCancelled ? 'Cancelado' : isPast ? 'Encerrado' : 'Em aberto'}
-          </Text>
+          <Text style={[s.statusText, { color: statusColor }]}>{statusText}</Text>
         </View>
 
         <View style={s.cardTimeRow}>
@@ -88,21 +296,59 @@ function GameCard({ g, onPress }: { g: MyGame; onPress: () => void }) {
             <Text style={s.cardMeta}>{g.duration_minutes} min</Text>
           </View>
         </View>
+
+        {canConfirm ? (
+          <TouchableOpacity
+            onPress={(e) => { e.stopPropagation?.(); onConfirm?.() }}
+            activeOpacity={0.85}
+            disabled={confirming}
+            style={s.confirmBtn}
+          >
+            {confirming
+              ? <ActivityIndicator size={12} color={C.ink} />
+              : <Ionicons name="checkmark-circle-outline" size={14} color={C.ink} />
+            }
+            <Text style={s.confirmBtnText}>{confirming ? 'Confirmando…' : 'Confirmar realização'}</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {canRate ? (
+          <TouchableOpacity
+            onPress={(e) => { e.stopPropagation?.(); onRate?.() }}
+            activeOpacity={0.85}
+            style={s.rateBtn}
+          >
+            <Ionicons name="star-outline" size={14} color={C.ink} />
+            <Text style={s.rateBtnText}>Avaliar jogadores</Text>
+          </TouchableOpacity>
+        ) : isCompleted && g.has_rated ? (
+          <View style={s.ratedBadge}>
+            <Ionicons name="checkmark-circle" size={13} color={C.success} />
+            <Text style={s.ratedBadgeText}>Avaliado</Text>
+          </View>
+        ) : null}
       </View>
 
-      <View style={s.chevron}>
-        <Ionicons name="chevron-forward" size={16} color={C.inkSoft} />
-      </View>
+      {!canConfirm && !canRate ? (
+        <View style={s.chevron}>
+          <Ionicons name="chevron-forward" size={16} color={C.inkSoft} />
+        </View>
+      ) : null}
     </TouchableOpacity>
   )
 }
 
+// ── Screen ────────────────────────────────────────────────────────────────────
+
 export default function MeusJogosScreen() {
   const router = useRouter()
   const { user } = useAuth()
+  const { showConfirm, showToast } = useToast()
   const [myGames, setMyGames] = useState<MyGame[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'proximos' | 'passados'>('proximos')
+  const [confirming, setConfirming] = useState<string | null>(null)
+  const [ratingGameId, setRatingGameId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -115,9 +361,30 @@ export default function MeusJogosScreen() {
   useEffect(() => { load() }, [load])
   useFocusEffect(useCallback(() => { load() }, [load]))
 
+  function handleConfirm(jogoId: string) {
+    showConfirm({
+      title: 'Confirmar realização',
+      message: 'O jogo realmente ocorreu? As estatísticas de todos os participantes serão atualizadas.',
+      confirmLabel: 'Confirmar',
+      onConfirm: async () => {
+        setConfirming(jogoId)
+        try {
+          await apiPost(`/jogos/${jogoId}/confirm`, {})
+          setMyGames(prev => prev.map(g => g.id === jogoId ? { ...g, status: 'completed' } : g))
+          showToast({ type: 'success', title: 'Jogo confirmado!', message: 'Estatísticas atualizadas.' })
+          setTimeout(() => setRatingGameId(jogoId), 400)
+        } catch (e: unknown) {
+          showToast({ type: 'error', title: 'Erro ao confirmar', message: (e as { message?: string })?.message })
+        } finally {
+          setConfirming(null)
+        }
+      },
+    })
+  }
+
   const now = new Date()
-  const proximos = myGames.filter(g => g.status !== 'cancelled' && new Date(g.scheduled_at) >= now)
-  const passados = myGames.filter(g => g.status === 'cancelled' || new Date(g.scheduled_at) < now).reverse()
+  const proximos = myGames.filter(g => g.status !== 'cancelled' && g.status !== 'completed' && new Date(g.scheduled_at) >= now)
+  const passados = myGames.filter(g => g.status === 'cancelled' || g.status === 'completed' || new Date(g.scheduled_at) < now).reverse()
   const list = tab === 'proximos' ? proximos : passados
 
   return (
@@ -154,14 +421,36 @@ export default function MeusJogosScreen() {
             </View>
           ) : (
             list.map(g => (
-              <GameCard key={g.id} g={g} onPress={() => router.push(`/(app)/jogo/${g.id}` as never)} />
+              <GameCard
+                key={g.id}
+                g={g}
+                onPress={() => router.push(`/(app)/jogo/${g.id}` as never)}
+                onConfirm={() => handleConfirm(g.id)}
+                onRate={() => setRatingGameId(g.id)}
+                confirming={confirming === g.id}
+              />
             ))
           )}
         </ScrollView>
       )}
+
+      {ratingGameId ? (
+        <RatingModal
+          visible={!!ratingGameId}
+          jogoId={ratingGameId}
+          userId={user?.id ?? ''}
+          onClose={() => setRatingGameId(null)}
+          onDone={() => {
+            setMyGames(prev => prev.map(g => g.id === ratingGameId ? { ...g, has_rated: true } : g))
+            setRatingGameId(null)
+          }}
+        />
+      ) : null}
     </Screen>
   )
 }
+
+// ── Styles ────────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
   headerWrap: { padding: 20, paddingBottom: 4 },
@@ -202,10 +491,60 @@ const s = StyleSheet.create({
   cardBottomRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
   cardMeta: { fontSize: 11, color: C.inkSoft, fontFamily: F.body },
 
+  confirmBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginTop: 12, paddingVertical: 8, paddingHorizontal: 12,
+    backgroundColor: C.lime, borderRadius: 12, alignSelf: 'flex-start',
+  },
+  confirmBtnText: { fontSize: 12, fontFamily: F.bodyBold, color: C.ink },
+
+  rateBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginTop: 10, paddingVertical: 7, paddingHorizontal: 12,
+    backgroundColor: C.cream, borderRadius: 12, alignSelf: 'flex-start',
+    borderWidth: 1.5, borderColor: C.line,
+  },
+  rateBtnText: { fontSize: 12, fontFamily: F.bodyBold, color: C.ink },
+
+  ratedBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10,
+  },
+  ratedBadgeText: { fontSize: 12, fontFamily: F.bodySemi, color: C.success },
+
   chevron: { alignItems: 'center', justifyContent: 'center', paddingRight: 12 },
 
   empty: { alignItems: 'center', padding: 40 },
   emptyIcon: { fontSize: 32, marginBottom: 12 },
   emptyTitle: { fontFamily: F.headingBold, fontSize: 17, color: C.ink },
   emptySub: { fontSize: 13, color: C.inkSoft, fontFamily: F.body, marginTop: 6, lineHeight: 20, textAlign: 'center' },
+})
+
+// ── RatingModal styles ────────────────────────────────────────────────────────
+
+const rm = StyleSheet.create({
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: 20, borderBottomWidth: 1, borderBottomColor: C.line,
+  },
+  title: { fontFamily: F.headingBold, fontSize: 20, color: C.ink, letterSpacing: -0.3 },
+  playerCard: {
+    backgroundColor: C.card, borderRadius: 20, padding: 16,
+    borderWidth: 1.5, borderColor: C.line,
+    shadowColor: '#1A1813', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06,
+    shadowRadius: 8, elevation: 2,
+  },
+  playerHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  playerName: { fontFamily: F.bodyBold, fontSize: 16, color: C.ink, flex: 1 },
+  sectionLabel: { fontSize: 11, fontFamily: F.bodyBold, color: C.inkSoft, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 },
+  badgesWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  badge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 999, borderWidth: 1.5, borderColor: C.line,
+    backgroundColor: C.cream,
+  },
+  badgeSelected: { borderColor: C.ink, backgroundColor: 'rgba(203,241,53,0.25)' },
+  badgeIcon: { fontSize: 13 },
+  badgeLabel: { fontSize: 12, fontFamily: F.bodySemi, color: C.inkSoft },
+  footer: { padding: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.line },
 })
