@@ -274,7 +274,6 @@ export default function DescobrirScreen() {
     const d = new Date(g.scheduled_at); const t = new Date()
     return d.toDateString() === t.toDateString()
   })
-  const firstName = user?.name?.split(' ')[0] ?? ''
   const activeSportLabel = FILTERS.find(f => f.key === sportFilter)?.label ?? ''
 
   return (
@@ -330,22 +329,37 @@ export default function DescobrirScreen() {
         </View>
       ) : null}
 
-      {/* Filter bar */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow} style={s.filterScroll}>
-        {FILTERS.map(f => {
+      {/* Filter bar — 4 campos iguais */}
+      <View style={s.filterBar}>
+        {FILTERS.map((f, idx) => {
           const active = sportFilter === f.key
           const count = counts[f.key] ?? 0
+          const isFirst = idx === 0
+          const isLast = idx === FILTERS.length - 1
           return (
-            <TouchableOpacity key={f.key} onPress={() => setSportFilter(f.key)} activeOpacity={0.8}
-              style={[s.filterPill, active && s.filterPillActive]}>
-              <Text style={[s.filterPillText, active && s.filterPillTextActive]}>
+            <TouchableOpacity
+              key={f.key}
+              onPress={() => setSportFilter(f.key)}
+              activeOpacity={0.8}
+              style={[
+                s.filterSegment,
+                isFirst && s.filterSegmentFirst,
+                isLast && s.filterSegmentLast,
+                active && s.filterSegmentActive,
+              ]}
+            >
+              <Text style={[s.filterSegmentText, active && s.filterSegmentTextActive]}>
                 {f.label}
-                {count > 0 ? <Text style={[s.filterCount, active && s.filterCountActive]}> ({count})</Text> : null}
               </Text>
+              {count > 0 ? (
+                <Text style={[s.filterSegmentCount, active && s.filterSegmentCountActive]}>
+                  {count}
+                </Text>
+              ) : null}
             </TouchableOpacity>
           )
         })}
-      </ScrollView>
+      </View>
 
       {/* Games list */}
       {loading ? (
@@ -497,16 +511,32 @@ const s = StyleSheet.create({
     fontSize: 13, fontFamily: F.bodyBold, color: C.ink,
   },
 
-  // Filters
+  // Filter segmented control
+  filterBar: {
+    flexDirection: 'row',
+    marginHorizontal: 16, marginBottom: 12,
+    backgroundColor: C.card,
+    borderRadius: 14, borderWidth: 1.5, borderColor: C.line,
+    overflow: 'hidden',
+  },
+  filterSegment: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 9, gap: 2,
+    borderRightWidth: 1, borderRightColor: C.line,
+  },
+  filterSegmentFirst: { borderLeftWidth: 0 },
+  filterSegmentLast:  { borderRightWidth: 0 },
+  filterSegmentActive: { backgroundColor: C.ink },
+  filterSegmentText: { fontSize: 12, fontFamily: F.bodyBold, color: C.inkSoft },
+  filterSegmentTextActive: { color: C.cream },
+  filterSegmentCount: {
+    fontSize: 10, fontFamily: F.bodyBold, color: C.inkSoft,
+  },
+  filterSegmentCountActive: { color: `${C.cream}80` },
+  // kept for any remaining refs
   filterScroll: { flexGrow: 0 },
   filterRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 14 },
-  filterPill: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999,
-    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
-  },
-  filterPillActive: { backgroundColor: C.ink, borderColor: C.ink },
   filterPillText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
-  filterPillTextActive: { color: C.cream },
   filterCount: { fontSize: 12, fontFamily: F.bodySemi, color: C.inkSoft },
   filterCountActive: { color: `${C.cream}CC` },
 
