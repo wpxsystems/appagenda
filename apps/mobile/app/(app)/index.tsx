@@ -27,6 +27,7 @@ interface Game {
   vacancies_total: number
   status: string
   court_reserved: boolean
+  court_price_per_person: number | null
   target_category: string | null
   target_skill_level: string | null
   notes: string | null
@@ -116,15 +117,28 @@ function GameCard({ g, onJoin, onView, isOwn }: {
         <Text style={s.cardDateText}> · {formatDay(g.scheduled_at)}</Text>
       </View>
 
-      {/* quadra */}
-      <Text style={s.cardVenueText} numberOfLines={1}>
-        {g.venue_nome ?? 'Quadra a definir'}
-      </Text>
+      {/* quadra + reservada */}
+      <View style={s.cardVenueRow}>
+        <Text style={s.cardVenueText} numberOfLines={1}>
+          {g.venue_nome ?? 'Quadra a definir'}
+        </Text>
+        {g.court_reserved ? (
+          <View style={s.reservedBadge}>
+            <Ionicons name="checkmark-circle" size={11} color="#2E7D6E" />
+            <Text style={s.reservedText}>Reservada</Text>
+            {g.court_price_per_person ? (
+              <Text style={s.priceText}>
+                · R$ {g.court_price_per_person.toFixed(2).replace('.', ',')}/pessoa
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
 
       {/* avatares + botão entrar */}
       <View style={s.cardBottom}>
         <View style={s.avatarStack}>
-          {g.participants.slice(0, 4).map((p, i) => (
+          {(g.participants ?? []).slice(0, 5).map((p, i) => (
             p.avatar_url ? (
               <Image
                 key={p.id}
@@ -441,7 +455,11 @@ const s = StyleSheet.create({
   cardTime: { fontFamily: F.headingBold, fontSize: 28, color: C.ink, letterSpacing: -0.5 },
   cardDateText: { fontSize: 14, color: C.inkSoft, fontFamily: F.bodySemi },
 
-  cardVenueText: { fontSize: 13, color: C.inkSoft, fontFamily: F.bodySemi, marginBottom: 14 },
+  cardVenueRow: { gap: 4, marginBottom: 12 },
+  cardVenueText: { fontSize: 13, color: C.inkSoft, fontFamily: F.bodySemi },
+  reservedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  reservedText: { fontSize: 11, fontFamily: F.bodyBold, color: '#2E7D6E' },
+  priceText: { fontSize: 11, fontFamily: F.bodySemi, color: '#2E7D6E' },
 
   cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   avatarStack: { flexDirection: 'row', alignItems: 'center' },
