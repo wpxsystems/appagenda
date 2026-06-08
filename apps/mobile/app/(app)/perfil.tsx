@@ -96,33 +96,36 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
   onClose: () => void
   onSaved: (data: ProfileData) => void
 }) {
-  const { showToast } = useToast()
   const [form, setForm] = useState<ProfileData>(initial)
   const [phoneDisplay, setPhoneDisplay] = useState('')
   const [birthDisplay, setBirthDisplay] = useState('')
   const [cidades, setCidades] = useState<Cidade[]>([])
   const [cidadeModal, setCidadeModal] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [inlineError, setInlineError] = useState('')
 
   useEffect(() => {
     if (visible) {
       setForm(initial)
       setPhoneDisplay(fmtPhone(initial.phone))
       setBirthDisplay(birthToDisplay(initial.data_nascimento))
+      setInlineError('')
       apiGet<Cidade[]>('/cidades').then(setCidades).catch(() => {})
     }
   }, [visible])
 
   function set(key: keyof ProfileData, value: string | boolean) {
+    setInlineError('')
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
   async function save() {
     if (!form.nome.trim() || form.nome.trim().length < 2) {
-      showToast({ type: 'error', title: 'Nome muito curto', message: 'Mínimo 2 caracteres' })
+      setInlineError('Nome precisa ter pelo menos 2 caracteres.')
       return
     }
     setSaving(true)
+    setInlineError('')
     try {
       const apiDate = birthToApi(birthDisplay)
       await Promise.all([
@@ -137,11 +140,10 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
         }),
         form.cidade_id ? apiPatch('/me/location', { cidade_id: form.cidade_id }) : Promise.resolve(),
       ])
-      showToast({ type: 'success', title: 'Perfil atualizado!' })
       onSaved({ ...form, phone: phoneDisplay, data_nascimento: apiDate })
     } catch (e: unknown) {
-      showToast({ type: 'error', title: 'Erro ao salvar', message: (e as { message?: string })?.message })
-    } finally {
+      const msg = (e as { message?: string })?.message ?? 'Erro ao salvar. Tente novamente.'
+      setInlineError(msg)
       setSaving(false)
     }
   }
@@ -281,6 +283,13 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
                 thumbColor="#fff"
               />
             </View>
+
+            {inlineError ? (
+              <View style={ep.inlineError}>
+                <Ionicons name="alert-circle-outline" size={16} color={C.coral} />
+                <Text style={ep.inlineErrorText}>{inlineError}</Text>
+              </View>
+            ) : null}
 
             <View style={{ marginTop: 4 }}>
               <Btn fullWidth onPress={save} disabled={saving}>
@@ -470,6 +479,7 @@ function SportEditModal({ visible, sport: initialSport, existing, onClose, onSav
 export default function PerfilScreen() {
   const router = useRouter()
   const { user, logout, accessToken } = useAuth()
+  const { showToast } = useToast()
   const params = useLocalSearchParams<{ sport?: string }>()
 
   const [sportProfiles, setSportProfiles] = useState<SportProfile[]>([])
@@ -1041,6 +1051,7 @@ export default function PerfilScreen() {
         onSaved={(data) => {
           setProfileData(data)
           setEditOpen(false)
+          setTimeout(() => showToast({ type: 'success', title: 'Perfil atualizado!' }), 300)
         }}
       />
     </Screen>
@@ -1252,4 +1263,11 @@ const ep = StyleSheet.create({
   },
   switchLabel: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
   switchSub: { fontSize: 12, fontFamily: F.body, color: C.inkSoft, marginTop: 2 },
+  inlineError: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: `${C.coral}15`, borderRadius: 12,
+    borderWidth: 1, borderColor: `${C.coral}40`,
+    padding: 12,
+  },
+  inlineErrorText: { flex: 1, fontSize: 13, fontFamily: F.bodySemi, color: C.coral, lineHeight: 18 },
 })
