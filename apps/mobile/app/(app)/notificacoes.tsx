@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useFocusEffect } from 'expo-router'
@@ -118,11 +118,29 @@ export default function NotificacoesScreen() {
       {loading ? (
         <ActivityIndicator color={C.ink} style={{ marginTop: 40 }} />
       ) : notifications.length === 0 ? (
-        <View style={s.empty}>
-          <Ionicons name="notifications-off-outline" size={48} color={C.line} />
-          <Text style={s.emptyTitle}>Nenhuma notificação</Text>
-          <Text style={s.emptySub}>Você receberá avisos sobre jogos, avaliações e novidades aqui.</Text>
-        </View>
+        <ScrollView contentContainerStyle={s.emptyWrap} showsVerticalScrollIndicator={false}><View>
+          <Ionicons name="notifications-outline" size={44} color={C.line} style={{ marginBottom: 8 }} />
+          <Text style={s.emptyTitle}>Tudo em dia!</Text>
+          <Text style={s.emptySub}>Você receberá avisos aqui assim que algo acontecer nos seus jogos.</Text>
+
+          <Text style={s.previewLabel}>O que você vai receber</Text>
+          {[
+            { icon: 'compass' as const,         color: '#2E6F9E', title: 'Novo jogo no seu horário',   sub: 'Quando um jogo compatível com seu perfil for criado na sua cidade' },
+            { icon: 'person-add' as const,      color: '#10B981', title: 'Alguém entrou no seu jogo', sub: 'Quando um jogador confirmar presença no jogo que você organizou' },
+            { icon: 'exit-outline' as const,    color: '#F59E0B', title: 'Jogador saiu',               sub: 'Quando alguém desistir do seu jogo antes do horário' },
+            { icon: 'star' as const,            color: '#F5A623', title: 'Hora de avaliar',            sub: 'Lembrete para dar nota aos participantes após o jogo' },
+          ].map(item => (
+            <View key={item.title} style={s.previewCard}>
+              <View style={[s.previewIcon, { backgroundColor: `${item.color}18` }]}>
+                <Ionicons name={item.icon} size={20} color={item.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.previewTitle}>{item.title}</Text>
+                <Text style={s.previewSub}>{item.sub}</Text>
+              </View>
+            </View>
+          ))}
+        </View></ScrollView>
       ) : (
         <FlatList
           data={groups}
@@ -199,7 +217,21 @@ const s = StyleSheet.create({
     backgroundColor: C.lime, alignSelf: 'center', flexShrink: 0,
   },
 
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingBottom: 80, paddingHorizontal: 40 },
-  emptyTitle: { fontFamily: F.headingBold, fontSize: 17, color: C.ink },
-  emptySub: { fontSize: 13, color: C.inkSoft, fontFamily: F.body, textAlign: 'center', lineHeight: 20 },
+  emptyWrap: { alignItems: 'center', padding: 24, gap: 6 },
+  emptyTitle: { fontFamily: F.headingBold, fontSize: 20, color: C.ink, letterSpacing: -0.3 },
+  emptySub: { fontSize: 13, color: C.inkSoft, fontFamily: F.body, textAlign: 'center', lineHeight: 20, marginBottom: 8 },
+
+  previewLabel: {
+    fontSize: 11, fontFamily: F.bodyBold, color: C.inkSoft,
+    textTransform: 'uppercase', letterSpacing: 1.5,
+    alignSelf: 'flex-start', marginTop: 8, marginBottom: 4,
+  },
+  previewCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: C.card, borderRadius: 16, padding: 14,
+    borderWidth: 1.5, borderColor: C.line, width: '100%',
+  },
+  previewIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  previewTitle: { fontSize: 13, fontFamily: F.bodyBold, color: C.ink, marginBottom: 2 },
+  previewSub: { fontSize: 12, fontFamily: F.body, color: C.inkSoft, lineHeight: 17 },
 })

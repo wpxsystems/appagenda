@@ -48,6 +48,17 @@ const FILTERS = [
 ] as const
 
 const AVATAR_COLORS = ['#2E6F9E','#D4880A','#B03A2E','#5B7A4C','#8A5A9E','#C2607F','#3A7A6E','#A0622A']
+
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Bom dia'
+  if (h < 18) return 'Boa tarde'
+  return 'Boa noite'
+}
+
+const SPORT_EMOJIS: Record<string, string> = {
+  padel: '🎾', beach_tennis: '🏖️', tennis: '🎾',
+}
 function avatarColor(id: string) {
   let h = 0
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % AVATAR_COLORS.length
@@ -256,57 +267,67 @@ export default function DescobrirScreen() {
   }
 
   const { showToast, showConfirm } = useToast()
+  const totalOpenSpots = allGames.reduce((acc, g) => acc + g.open_spots, 0)
+  const todayGames = allGames.filter(g => {
+    const d = new Date(g.scheduled_at); const t = new Date()
+    return d.toDateString() === t.toDateString()
+  })
+  const firstName = user?.name?.split(' ')[0] ?? ''
+  const activeSportLabel = FILTERS.find(f => f.key === sportFilter)?.label ?? ''
+
   return (
     <Screen>
       {/* Header */}
       <View style={s.header}>
         <View style={{ flex: 1 }}>
-          <TouchableOpacity
-            onPress={() => setCidadeModal(true)}
-            activeOpacity={0.7}
-            style={s.locationRow}
-          >
+          <Text style={s.greeting}>{greeting()}{firstName ? `, ${firstName}` : ''} 👋</Text>
+          <TouchableOpacity onPress={() => setCidadeModal(true)} activeOpacity={0.7} style={s.locationRow}>
             <Ionicons name="location-outline" size={13} color={C.inkSoft} />
-            <Text style={s.locationText} numberOfLines={1}>
-              {cidadeNome || 'Selecionar cidade'}
-            </Text>
+            <Text style={s.locationText} numberOfLines={1}>{cidadeNome || 'Selecionar cidade'}</Text>
             <Ionicons name="chevron-down" size={11} color={C.inkSoft} />
           </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => router.push('/(app)/criar' as never)}
-          style={s.createBtn}
-        >
+        <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/(app)/criar' as never)} style={s.createBtn}>
           <Ionicons name="add" size={15} color={C.ink} />
           <Text style={s.createBtnText}>Criar Jogo</Text>
         </TouchableOpacity>
       </View>
 
+      {/* Stats bar — só aparece quando há jogos */}
+      {!loading && allGames.length > 0 ? (
+        <View style={s.statsBar}>
+          <View style={s.statItem}>
+            <Text style={s.statNum}>{allGames.length}</Text>
+            <Text style={s.statLabel}>jogo{allGames.length > 1 ? 's' : ''} aberto{allGames.length > 1 ? 's' : ''}</Text>
+          </View>
+          <View style={s.statDivider} />
+          <View style={s.statItem}>
+            <Text style={s.statNum}>{totalOpenSpots}</Text>
+            <Text style={s.statLabel}>vaga{totalOpenSpots !== 1 ? 's' : ''} disponível{totalOpenSpots !== 1 ? 'is' : ''}</Text>
+          </View>
+          {todayGames.length > 0 ? (
+            <>
+              <View style={s.statDivider} />
+              <View style={s.statItem}>
+                <Text style={[s.statNum, { color: C.coral }]}>{todayGames.length}</Text>
+                <Text style={s.statLabel}>hoje</Text>
+              </View>
+            </>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* Filter bar */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.filterRow}
-        style={s.filterScroll}
-      >
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow} style={s.filterScroll}>
         {FILTERS.map(f => {
           const active = sportFilter === f.key
           const count = counts[f.key] ?? 0
           return (
-            <TouchableOpacity
-              key={f.key}
-              onPress={() => setSportFilter(f.key)}
-              activeOpacity={0.8}
-              style={[s.filterPill, active && s.filterPillActive]}
-            >
+            <TouchableOpacity key={f.key} onPress={() => setSportFilter(f.key)} activeOpacity={0.8}
+              style={[s.filterPill, active && s.filterPillActive]}>
               <Text style={[s.filterPillText, active && s.filterPillTextActive]}>
                 {f.label}
-                {count > 0 ? (
-                  <Text style={[s.filterCount, active && s.filterCountActive]}>
-                    {' '}({count})
-                  </Text>
-                ) : null}
+                {count > 0 ? <Text style={[s.filterCount, active && s.filterCountActive]}> ({count})</Text> : null}
               </Text>
             </TouchableOpacity>
           )
@@ -320,30 +341,63 @@ export default function DescobrirScreen() {
         <ScrollView
           contentContainerStyle={s.scroll}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); load() }}
-              tintColor={C.ink}
-            />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load() }} tintColor={C.ink} />}
         >
           {games.length === 0 ? (
-            <View style={s.empty}>
-              <Text style={s.emptyIcon}>🎾</Text>
-              <Text style={s.emptyTitle}>Nenhum jogo por aqui</Text>
-              <Text style={s.emptySub}>Que tal criar um?</Text>
-            </View>
+            allGames.length === 0 ? (
+              /* Nenhum jogo na cidade */
+              <View style={s.emptyWrap}>
+                <Text style={s.emptyEmojis}>🎾 🏖️ 🏸</Text>
+                <Text style={s.emptyTitle}>Nenhum jogo em {cidadeNome || 'sua cidade'}</Text>
+                <Text style={s.emptySub}>
+                  Seja o pioneiro! Crie o primeiro jogo e convide seus parceiros.
+                </Text>
+                <TouchableOpacity onPress={() => router.push('/(app)/criar' as never)} activeOpacity={0.85} style={s.emptyPrimaryBtn}>
+                  <Ionicons name="add-circle-outline" size={18} color={C.ink} />
+                  <Text style={s.emptyPrimaryBtnText}>Criar o primeiro jogo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setCidadeModal(true)} activeOpacity={0.7} style={s.emptySecondaryBtn}>
+                  <Text style={s.emptySecondaryBtnText}>Mudar cidade</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              /* Há jogos mas o filtro de esporte está vazio */
+              <View style={s.emptyWrap}>
+                <Text style={s.emptyEmojis}>{SPORT_EMOJIS[sportFilter] ?? '🎾'}</Text>
+                <Text style={s.emptyTitle}>Nenhum jogo de {activeSportLabel}</Text>
+                <Text style={s.emptySub}>Não encontrou o que queria? Crie um jogo para este esporte.</Text>
+                <TouchableOpacity onPress={() => router.push('/(app)/criar' as never)} activeOpacity={0.85} style={s.emptyPrimaryBtn}>
+                  <Text style={s.emptyPrimaryBtnText}>Criar jogo de {activeSportLabel}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setSportFilter('all')} activeOpacity={0.7} style={s.emptySecondaryBtn}>
+                  <Text style={s.emptySecondaryBtnText}>Ver todos os esportes</Text>
+                </TouchableOpacity>
+              </View>
+            )
           ) : (
-            games.map(g => (
-              <GameCard
-                key={g.id}
-                g={g}
-                isOwn={g.creator_id === user?.id}
-                onView={() => router.push(`/(app)/jogo/${g.id}` as never)}
-                onJoin={() => joiningId === null ? joinGame(g.id) : undefined}
-              />
-            ))
+            <>
+              {games.map(g => (
+                <GameCard
+                  key={g.id}
+                  g={g}
+                  isOwn={g.creator_id === user?.id}
+                  onView={() => router.push(`/(app)/jogo/${g.id}` as never)}
+                  onJoin={() => joiningId === null ? joinGame(g.id) : undefined}
+                />
+              ))}
+
+              {/* Prompt de criação ao final da lista */}
+              <TouchableOpacity onPress={() => router.push('/(app)/criar' as never)} activeOpacity={0.85} style={s.createPrompt}>
+                <View style={s.createPromptIcon}>
+                  <Ionicons name="add" size={20} color={C.ink} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.createPromptTitle}>Não encontrou o jogo ideal?</Text>
+                  <Text style={s.createPromptSub}>Crie o seu e convide parceiros</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={C.inkSoft} />
+              </TouchableOpacity>
+            </>
           )}
         </ScrollView>
       )}
@@ -396,14 +450,25 @@ export default function DescobrirScreen() {
 const s = StyleSheet.create({
   // Header
   header: {
-    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 14,
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 10,
     flexDirection: 'row', alignItems: 'center', gap: 8,
   },
-  locationRow: {
+  greeting: { fontFamily: F.headingBold, fontSize: 18, color: C.ink, letterSpacing: -0.3, marginBottom: 3 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 4 },
+  locationText: { fontSize: 13, color: C.inkSoft, fontFamily: F.bodySemi },
+
+  // Stats bar
+  statsBar: {
     flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'flex-start', gap: 4,
+    marginHorizontal: 16, marginBottom: 10,
+    backgroundColor: C.card, borderRadius: 16,
+    borderWidth: 1.5, borderColor: C.line,
+    paddingVertical: 10, paddingHorizontal: 16,
   },
-  locationText: { fontSize: 14, color: C.ink, fontFamily: F.bodyBold },
+  statItem: { flex: 1, alignItems: 'center' },
+  statNum: { fontFamily: F.headingBold, fontSize: 18, color: C.ink, letterSpacing: -0.3 },
+  statLabel: { fontSize: 10, fontFamily: F.bodySemi, color: C.inkSoft, marginTop: 1 },
+  statDivider: { width: 1, height: 28, backgroundColor: C.line },
   createBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: C.lime, borderRadius: 999,
@@ -492,11 +557,34 @@ const s = StyleSheet.create({
   },
   joinBtnText: { fontFamily: F.bodyBold, fontSize: 13, color: C.ink },
 
-  // Empty
-  empty: { alignItems: 'center', paddingTop: 60 },
-  emptyIcon: { fontSize: 36, marginBottom: 12 },
-  emptyTitle: { fontFamily: F.headingBold, fontSize: 17, color: C.ink },
-  emptySub: { fontSize: 13, color: C.inkSoft, fontFamily: F.body, marginTop: 6 },
+  // Empty state
+  emptyWrap: { alignItems: 'center', paddingTop: 48, paddingHorizontal: 32, gap: 10 },
+  emptyEmojis: { fontSize: 40, letterSpacing: 8, marginBottom: 4 },
+  emptyTitle: { fontFamily: F.headingBold, fontSize: 20, color: C.ink, textAlign: 'center', letterSpacing: -0.3 },
+  emptySub: { fontSize: 14, color: C.inkSoft, fontFamily: F.body, textAlign: 'center', lineHeight: 20, marginBottom: 8 },
+  emptyPrimaryBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.lime, borderRadius: 999,
+    paddingHorizontal: 24, paddingVertical: 13,
+    shadowColor: '#6B8800', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4,
+  },
+  emptyPrimaryBtnText: { fontFamily: F.bodyBold, fontSize: 15, color: C.ink },
+  emptySecondaryBtn: { paddingVertical: 10, paddingHorizontal: 16 },
+  emptySecondaryBtnText: { fontFamily: F.bodySemi, fontSize: 13, color: C.inkSoft },
+
+  // Prompt de criação ao final da lista
+  createPrompt: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 16, borderRadius: 20,
+    backgroundColor: C.card, borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.line,
+    marginTop: 4,
+  },
+  createPromptIcon: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: C.lime,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  createPromptTitle: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
+  createPromptSub: { fontSize: 12, fontFamily: F.body, color: C.inkSoft, marginTop: 2 },
 
   // Modal cidade
   modalWrap: { flex: 1, backgroundColor: C.cream },
