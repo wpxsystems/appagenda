@@ -1,9 +1,56 @@
 const { z } = require('zod');
 const { Op } = require('sequelize');
 const asyncHandler = require('../utils/asyncHandler');
-const { Jogo, Participacao, Venue, User, Notification, GameMessage, sequelize } = require('../models');
+const { Jogo, Participacao, Venue, User, Notification, GameMessage, SportProfile, sequelize } = require('../models');
 const AppError = require('../utils/AppError');
 const withUserCtx = require('../utils/withUserCtx');
+
+const DAY_KEYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+
+async function notifyMatchingUsers(jogo, creatorId) {
+  try {
+    const gameDate = new Date(jogo.scheduled_at);
+    const dayKey = DAY_KEYS[gameDate.getDay()];
+    const gameMin = gameDate.getHours() * 60 + gameDate.getMinutes();
+    const sportLabel = { padel: 'Padel', beach_tennis: 'Beach Tennis', tennis: 'Tênis' };
+
+    const users = await User.findAll({
+      where: { id: { [Op.ne]: creatorId }, cidade_id: jogo.cidade_id, status: 'active' },
+      include: [{ model: SportProfile, as: 'sportProfiles', where: { sport: jogo.sport }, required: true }],
+      attributes: ['id', 'availability_json'],
+    });
+
+    const matched = users.filter(u => {
+      if (!u.availability_json) return true;
+      try {
+        const avail = JSON.parse(u.availability_json);
+        const day = avail[dayKey];
+        if (!day?.active) return false;
+        const slots = day.slots?.length ? day.slots : [{ from: day.from ?? '00:00', to: day.to ?? '23:59' }];
+        return slots.some(s => {
+          const [fh, fm] = s.from.split(':').map(Number);
+          const [th, tm] = s.to.split(':').map(Number);
+          return gameMin >= fh * 60 + fm && gameMin < th * 60 + tm;
+        });
+      } catch { return false; }
+    });
+
+    const date = gameDate.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    await Promise.all(matched.map(u =>
+      withUserCtx(u.id, t =>
+        Notification.create({
+          user_id: u.id,
+          type: 'new_game_match',
+          title: 'Novo jogo no seu horário!',
+          body: `Jogo de ${sportLabel[jogo.sport] ?? jogo.sport} disponível ${date} às ${gameDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}. Veja se encaixa na sua agenda.`,
+          jogo_id: jogo.id,
+        }, { transaction: t })
+      ).catch(() => {})
+    ));
+  } catch (e) {
+    console.warn('[notifyMatchingUsers] erro:', e?.message);
+  }
+}
 
 const createJogoSchema = z.object({
   sport:              z.enum(['padel', 'beach_tennis', 'tennis']),
@@ -94,13 +141,14 @@ exports.getById = asyncHandler(async (req, res) => {
 
 exports.create = asyncHandler(async (req, res) => {
   const data = createJogoSchema.parse(req.body);
-  // Sincroniza target_category com o primeiro elemento de target_categories
   if (data.target_categories?.length) {
     data.target_category = data.target_categories[0];
   }
   const jogo = await Jogo.create({ ...data, creator_id: req.auth.userId });
   await Participacao.create({ jogo_id: jogo.id, user_id: req.auth.userId });
   res.status(201).json(jogo);
+  // Fire-and-forget: notifica usuários com perfil compatível
+  notifyMatchingUsers(jogo, req.auth.userId);
 });
 
 exports.join = asyncHandler(async (req, res) => {
@@ -114,6 +162,23 @@ exports.join = asyncHandler(async (req, res) => {
   if (existing) throw new AppError('Você já está neste jogo', 409);
 
   await Participacao.create({ jogo_id: jogo.id, user_id: req.auth.userId });
+
+  // Notifica o criador que alguém entrou
+  try {
+    const joiningUser = await User.findByPk(req.auth.userId, { attributes: ['nome'] });
+    const sportLabel = { padel: 'Padel', beach_tennis: 'Beach Tennis', tennis: 'Tênis' };
+    const date = new Date(jogo.scheduled_at).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    await withUserCtx(jogo.creator_id, t =>
+      Notification.create({
+        user_id: jogo.creator_id,
+        type: 'player_joined',
+        title: 'Novo jogador no seu jogo!',
+        body: `${joiningUser?.nome ?? 'Um jogador'} entrou no seu jogo de ${sportLabel[jogo.sport] ?? jogo.sport} de ${date}.`,
+        jogo_id: jogo.id,
+      }, { transaction: t })
+    );
+  } catch { /* falha silenciosa */ }
+
   res.status(201).json({ ok: true });
 });
 

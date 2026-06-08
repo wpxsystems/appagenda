@@ -3,6 +3,13 @@ const { Notification } = require('../models');
 const AppError = require('../utils/AppError');
 const withUserCtx = require('../utils/withUserCtx');
 
+exports.unreadCount = asyncHandler(async (req, res) => {
+  const count = await Notification.count({
+    where: { user_id: req.auth.userId, read: false },
+  });
+  res.json({ count });
+});
+
 exports.list = asyncHandler(async (req, res) => {
   const notifications = await withUserCtx(req.auth.userId, (t) =>
     Notification.findAll({

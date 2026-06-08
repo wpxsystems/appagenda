@@ -15,15 +15,16 @@ export default function AppLayout() {
       screenOptions={{ headerShown: false }}
       sceneContainerStyle={{ backgroundColor: 'transparent' }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Descobrir' }} />
-      <Tabs.Screen name="torneios" options={{ title: 'Torneios' }} />
-      <Tabs.Screen name="meus-jogos" options={{ title: 'Meus jogos' }} />
-      <Tabs.Screen name="comunidade" options={{ title: 'Comunidade' }} />
-      <Tabs.Screen name="perfil" options={{ title: 'Perfil' }} />
-      <Tabs.Screen name="criar" options={{ href: null }} />
+      <Tabs.Screen name="index"        options={{ title: 'Descobrir' }} />
+      <Tabs.Screen name="notificacoes" options={{ title: 'Notificações' }} />
+      <Tabs.Screen name="meus-jogos"   options={{ title: 'Meus jogos' }} />
+      <Tabs.Screen name="comunidade"   options={{ title: 'Comunidade' }} />
+      <Tabs.Screen name="perfil"       options={{ title: 'Perfil' }} />
+      <Tabs.Screen name="criar"        options={{ href: null }} />
+      <Tabs.Screen name="torneios"     options={{ href: null }} />
 
-      <Tabs.Screen name="group/[id]" options={{ href: null }} />
-      <Tabs.Screen name="jogo/[id]" options={{ href: null }} />
+      <Tabs.Screen name="group/[id]"   options={{ href: null }} />
+      <Tabs.Screen name="jogo/[id]"    options={{ href: null }} />
     </Tabs>
     </View>
   )

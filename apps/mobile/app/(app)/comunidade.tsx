@@ -152,6 +152,22 @@ export default function ComunidadeScreen() {
         <ActivityIndicator color={C.ink} style={{ marginTop: 32 }} />
       ) : tab === 'grupos' ? (
         <ScrollView contentContainerStyle={s.scroll}>
+          {/* Torneios — em breve */}
+          <View style={s.torneioBanner}>
+            <View style={s.torneioBannerLeft}>
+              <View style={s.torneioIconWrap}>
+                <Ionicons name="trophy" size={20} color="#D4880A" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.torneioTitle}>Torneios</Text>
+                <Text style={s.torneioSub}>Campeonatos e ranqueadas — em breve</Text>
+              </View>
+            </View>
+            <View style={s.torneioBadge}>
+              <Text style={s.torneioBadgeText}>Em breve</Text>
+            </View>
+          </View>
+
           <TouchableOpacity onPress={() => setShowCreate(true)} activeOpacity={0.85} style={s.createRow}>
             <View style={s.createIcon}>
               <Ionicons name="add" size={20} color={C.ink} />
@@ -299,6 +315,24 @@ const s = StyleSheet.create({
   tabRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
 
   scroll: { padding: 16, gap: 8 },
+
+  torneioBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: 14, borderRadius: 18, marginBottom: 8,
+    backgroundColor: '#FFF9EC', borderWidth: 1.5, borderColor: '#F5E0A0',
+  },
+  torneioBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  torneioIconWrap: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: 'rgba(212,136,10,0.15)', alignItems: 'center', justifyContent: 'center',
+  },
+  torneioTitle: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
+  torneioSub: { fontSize: 12, color: C.inkSoft, fontFamily: F.body, marginTop: 2 },
+  torneioBadge: {
+    backgroundColor: 'rgba(212,136,10,0.15)', borderRadius: 999,
+    paddingHorizontal: 10, paddingVertical: 4,
+  },
+  torneioBadgeText: { fontSize: 11, fontFamily: F.bodyBold, color: '#D4880A' },
 
   createRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,

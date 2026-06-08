@@ -4,6 +4,7 @@ const ctrl = require('../controllers/notification.controller');
 
 router.use(auth);
 
+router.get('/unread-count',  ctrl.unreadCount);
 router.get('/',              ctrl.list);
 router.patch('/read-all',    ctrl.readAll);
 router.patch('/:id/read',    ctrl.readOne);
