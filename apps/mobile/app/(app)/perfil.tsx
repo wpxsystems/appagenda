@@ -128,18 +128,22 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
     setInlineError('')
     try {
       const apiDate = birthToApi(birthDisplay)
-      await Promise.all([
-        apiPatch('/me', {
-          nome: form.nome.trim(),
-          nickname: form.nickname.trim() || null,
-          bio: form.bio.trim() || null,
-          phone: phoneDisplay || null,
-          genero: form.genero || undefined,
-          data_nascimento: apiDate || null,
-          notifications_enabled: form.notifications_enabled,
-        }),
-        form.cidade_id ? apiPatch('/me/location', { cidade_id: form.cidade_id }) : Promise.resolve(),
-      ])
+
+      await apiPatch('/me', {
+        nome: form.nome.trim(),
+        nickname: form.nickname.trim() || null,
+        bio: form.bio.trim() || null,
+        phone: phoneDisplay || null,
+        genero: form.genero || undefined,
+        data_nascimento: apiDate || null,
+        notifications_enabled: form.notifications_enabled,
+      })
+
+      // Cidade separada: falha silenciosa para não bloquear o resto
+      if (form.cidade_id) {
+        await apiPatch('/me/location', { cidade_id: form.cidade_id }).catch(() => {})
+      }
+
       onSaved({ ...form, phone: phoneDisplay, data_nascimento: apiDate })
     } catch (e: unknown) {
       const msg = (e as { message?: string })?.message ?? 'Erro ao salvar. Tente novamente.'
