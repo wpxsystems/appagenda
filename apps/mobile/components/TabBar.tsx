@@ -16,11 +16,11 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { key: 'notificacoes', label: 'Notificações', iconActive: 'notifications',     iconInactive: 'notifications-outline' },
-  { key: 'meus-jogos',   label: 'Jogos',        iconActive: 'calendar',          iconInactive: 'calendar-outline' },
-  { key: 'index',        label: 'Descobrir',    iconActive: 'compass',           iconInactive: 'compass-outline' },
-  { key: 'comunidade',   label: 'Comunidade',   iconActive: 'people',            iconInactive: 'people-outline' },
-  { key: 'perfil',       label: 'Perfil',       iconActive: 'person-circle',     iconInactive: 'person-circle-outline' },
+  { key: 'notificacoes', label: 'Notificações', iconActive: 'notifications',  iconInactive: 'notifications-outline' },
+  { key: 'meus-jogos',   label: 'Agenda',       iconActive: 'calendar-number', iconInactive: 'calendar-number-outline' },
+  { key: 'index',        label: 'Partidas',     iconActive: 'tennisball',     iconInactive: 'tennisball-outline' },
+  { key: 'comunidade',   label: 'Comunidade',   iconActive: 'chatbubbles',    iconInactive: 'chatbubbles-outline' },
+  { key: 'perfil',       label: 'Perfil',       iconActive: 'person',         iconInactive: 'person-outline' },
 ]
 
 export function TabBar({ state, navigation }: BottomTabBarProps) {

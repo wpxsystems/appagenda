@@ -286,11 +286,16 @@ function GameCard({ g, onPress, onConfirm, onRate, confirming }: {
         </View>
 
         <View style={s.cardVenueRow}>
-          <Ionicons name="location-outline" size={12} color={C.inkSoft} />
-          <Text style={s.cardVenue}>{g.venue_nome ?? 'Quadra a definir'}</Text>
+          {g.venue_nome ? (
+            <Text style={s.cardVenue} numberOfLines={1}>{g.venue_nome}</Text>
+          ) : !g.court_reserved ? (
+            <Text style={s.cardVenue}>Quadra a definir</Text>
+          ) : null}
           {g.court_reserved ? (
             <View style={s.resBadge}>
-              <Text style={s.resBadgeText}>✓ Res.</Text>
+              <Ionicons name="checkmark-circle" size={11} color="#2E7D6E" />
+              <Text style={s.resBadgeText}>Reservada</Text>
+              {g.venue_nome ? null : null}
             </View>
           ) : null}
         </View>
@@ -486,13 +491,13 @@ const s = StyleSheet.create({
   scroll: { padding: 16, gap: 10 },
 
   card: {
-    flexDirection: 'row', borderRadius: 24, overflow: 'hidden',
-    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
+    flexDirection: 'row', borderRadius: 20, overflow: 'hidden',
+    backgroundColor: C.card, borderWidth: 1, borderColor: C.line,
     marginBottom: 10,
-    shadowColor: '#1A1813', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.09,
-    shadowRadius: 12, elevation: 3,
+    shadowColor: '#1A1813', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06,
+    shadowRadius: 8, elevation: 2,
   },
-  cardBar: { width: 5 },
+  cardBar: { width: 7 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   cardChips: { flexDirection: 'row', gap: 6 },
   sportChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
@@ -504,14 +509,14 @@ const s = StyleSheet.create({
   orgChipText: { fontSize: 10, fontFamily: F.bodyBold },
   statusText: { fontSize: 11, fontFamily: F.bodyBold },
 
-  cardTimeRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  cardTime: { fontFamily: F.headingBold, fontSize: 22, letterSpacing: -0.5 },
-  cardDate: { fontSize: 13, color: C.inkSoft, fontFamily: F.bodySemi },
+  cardTimeRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 2 },
+  cardTime: { fontFamily: F.headingBold, fontSize: 24, letterSpacing: -0.5 },
+  cardDate: { fontSize: 14, color: C.inkSoft, fontFamily: F.bodySemi },
 
-  cardVenueRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
-  cardVenue: { fontSize: 12, fontFamily: F.bodySemi, color: C.inkSoft },
-  resBadge: { backgroundColor: '#E8F4EE', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1 },
-  resBadgeText: { fontSize: 10, fontFamily: F.bodyBold, color: C.success },
+  cardVenueRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 },
+  cardVenue: { fontSize: 15, fontFamily: F.bodySemi, color: C.inkSoft },
+  resBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  resBadgeText: { fontSize: 14, fontFamily: F.bodyBold, color: '#2E7D6E' },
 
   cardBottomRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
   cardMeta: { fontSize: 11, color: C.inkSoft, fontFamily: F.body },

@@ -110,6 +110,9 @@ const FILTERS = [
 ] as const
 
 const AVATAR_COLORS = ['#2E6F9E','#D4880A','#B03A2E','#5B7A4C','#8A5A9E','#C2607F','#3A7A6E','#A0622A']
+const PT_WEEKDAY_SHORT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
+const PT_MONTH_LONG = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+const PT_MONTH_SHORT = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']
 
 function greeting() {
   const h = new Date().getHours()
@@ -152,12 +155,11 @@ function GameCard({ g, onJoin, onView, isOwn }: {
   const label = sportLabels[g.sport as keyof typeof sportLabels] ?? g.sport
   const isFull = g.open_spots <= 0
   const isUrgent = g.open_spots === 1
+  const filledSpots = g.vacancies_total - g.open_spots
 
   const spotsLabel = isFull
-    ? 'Completo'
-    : isUrgent
-    ? 'falta 1 vaga'
-    : `faltam ${g.open_spots} vagas`
+    ? `${g.vacancies_total}/${g.vacancies_total} jogadores`
+    : `${filledSpots}/${g.vacancies_total} jogadores`
 
   const spotsColor = isFull ? C.success : isUrgent ? C.coral : C.inkSoft
 
@@ -178,6 +180,11 @@ function GameCard({ g, onJoin, onView, isOwn }: {
                 : g.target_category ? `Cat. ${g.target_category}` : 'Livre'}
             </Text>
           </View>
+          {g.gender_type === 'male' ? (
+            <Ionicons name="male" size={13} color="#2E6F9E" />
+          ) : g.gender_type === 'female' ? (
+            <Ionicons name="female" size={13} color="#C2607F" />
+          ) : null}
         </View>
         <View style={[s.spotsBadge, {
           backgroundColor: isFull ? `${C.success}18` : isUrgent ? `${C.coral}15` : `${C.inkSoft}18`,
@@ -195,9 +202,11 @@ function GameCard({ g, onJoin, onView, isOwn }: {
 
       {/* quadra + reservada */}
       <View style={s.cardVenueRow}>
-        <Text style={s.cardVenueText} numberOfLines={1}>
-          {g.venue_nome ?? 'Quadra a definir'}
-        </Text>
+        {g.venue_nome ? (
+          <Text style={s.cardVenueText} numberOfLines={1}>{g.venue_nome}</Text>
+        ) : !g.court_reserved ? (
+          <Text style={s.cardVenueText}>Quadra a definir</Text>
+        ) : null}
         {g.court_reserved ? (
           <View style={s.reservedBadge}>
             <Ionicons name="checkmark-circle" size={11} color="#2E7D6E" />
@@ -253,7 +262,9 @@ export default function DescobrirScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [sportFilter, setSportFilter] = useState<string>('all')
-  const [dateFilter, setDateFilter] = useState<'all' | 'today'>('all')
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [datePickerOpen, setDatePickerOpen] = useState(false)
+  const [calMonth, setCalMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d })
   const [joiningId, setJoiningId] = useState<string | null>(null)
   const [cidadeId, setCidadeId] = useState<string | null>(null)
   const [cidadeNome, setCidadeNome] = useState<string>('')
@@ -296,11 +307,10 @@ export default function DescobrirScreen() {
     if (found) setCidadeNome(`${found.nome}, ${found.estado}`)
   }, [cidadeId, cidades])
 
-  const todayStr = new Date().toDateString()
   const games = applyAdvFilters(
     allGames
       .filter(g => sportFilter === 'all' || g.sport === sportFilter)
-      .filter(g => dateFilter === 'all' || new Date(g.scheduled_at).toDateString() === todayStr),
+      .filter(g => !selectedDate || new Date(g.scheduled_at).toDateString() === selectedDate.toDateString()),
     advFilters,
   )
   const activeFilterCount = countActiveFilters(advFilters)
@@ -354,7 +364,7 @@ export default function DescobrirScreen() {
           <Ionicons name="chevron-down" size={11} color={C.inkSoft} />
         </TouchableOpacity>
         <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/(app)/criar' as never)} style={s.createBtn}>
-          <Ionicons name="add" size={15} color={C.ink} />
+          <Ionicons name="add" size={16} color={C.ink} />
           <Text style={s.createBtnText}>Criar Jogo</Text>
         </TouchableOpacity>
       </View>
@@ -394,26 +404,49 @@ export default function DescobrirScreen() {
         })}
       </View>
 
-      {/* Botão de filtros avançados */}
-      <TouchableOpacity
-        onPress={() => setFilterModal(true)}
-        activeOpacity={0.8}
-        style={[s.filterAdvBtn, activeFilterCount > 0 && s.filterAdvBtnActive]}
-      >
-        <Ionicons name="options-outline" size={15} color={activeFilterCount > 0 ? '#fff' : C.inkSoft} />
-        <Text style={[s.filterAdvText, activeFilterCount > 0 && { color: '#fff' }]}>
-          {activeFilterCount > 0 ? `Filtros (${activeFilterCount})` : 'Filtros'}
-        </Text>
-        {activeFilterCount > 0 ? (
-          <TouchableOpacity
-            onPress={() => setAdvFilters(DEFAULT_FILTERS)}
-            hitSlop={8}
-            style={s.filterAdvClear}
-          >
-            <Ionicons name="close-circle" size={14} color="rgba(255,255,255,0.8)" />
-          </TouchableOpacity>
-        ) : null}
-      </TouchableOpacity>
+      {/* Botão de filtros avançados + data */}
+      <View style={s.filterAdvRow}>
+        <TouchableOpacity
+          onPress={() => setFilterModal(true)}
+          activeOpacity={0.8}
+          style={[s.filterAdvBtn, activeFilterCount > 0 && s.filterAdvBtnActive]}
+        >
+          <Ionicons name="options-outline" size={15} color={activeFilterCount > 0 ? '#fff' : C.inkSoft} />
+          <Text style={[s.filterAdvText, activeFilterCount > 0 && { color: '#fff' }]}>
+            {activeFilterCount > 0 ? `Filtros (${activeFilterCount})` : 'Filtros'}
+          </Text>
+          {activeFilterCount > 0 ? (
+            <TouchableOpacity
+              onPress={() => setAdvFilters(DEFAULT_FILTERS)}
+              hitSlop={8}
+              style={s.filterAdvClear}
+            >
+              <Ionicons name="close-circle" size={14} color="rgba(255,255,255,0.8)" />
+            </TouchableOpacity>
+          ) : null}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => {
+            if (selectedDate) setCalMonth(() => { const d = new Date(selectedDate); d.setDate(1); d.setHours(0,0,0,0); return d })
+            setDatePickerOpen(true)
+          }}
+          activeOpacity={0.8}
+          style={[s.datePillBtn, selectedDate && s.datePillBtnActive]}
+        >
+          <Ionicons name="calendar-outline" size={14} color={selectedDate ? '#fff' : C.inkSoft} />
+          <Text style={[s.datePillText, selectedDate && { color: '#fff' }]}>
+            {selectedDate
+              ? `${PT_WEEKDAY_SHORT[selectedDate.getDay()]}, ${selectedDate.getDate()} ${PT_MONTH_SHORT[selectedDate.getMonth()]}`
+              : 'Qualquer data'}
+          </Text>
+          {selectedDate ? (
+            <TouchableOpacity onPress={() => setSelectedDate(null)} hitSlop={8} style={{ marginLeft: 2 }}>
+              <Ionicons name="close-circle" size={14} color="rgba(255,255,255,0.8)" />
+            </TouchableOpacity>
+          ) : null}
+        </TouchableOpacity>
+      </View>
 
       {/* Games list */}
       {loading ? (
@@ -482,6 +515,73 @@ export default function DescobrirScreen() {
           )}
         </ScrollView>
       )}
+
+      {/* Modal calendário de data */}
+      <Modal visible={datePickerOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setDatePickerOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: C.cream }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: C.line }}>
+            <Text style={{ fontFamily: F.headingBold, fontSize: 20, color: C.ink, letterSpacing: -0.3 }}>Escolher data</Text>
+            <TouchableOpacity onPress={() => setDatePickerOpen(false)} hitSlop={12}>
+              <Ionicons name="close" size={22} color={C.inkSoft} />
+            </TouchableOpacity>
+          </View>
+          <View style={{ padding: 16 }}>
+            {selectedDate ? (
+              <TouchableOpacity onPress={() => { setSelectedDate(null); setDatePickerOpen(false) }} activeOpacity={0.8}
+                style={{ alignSelf: 'center', marginBottom: 16, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: `${C.coral}15`, borderWidth: 1, borderColor: `${C.coral}40` }}>
+                <Text style={{ fontFamily: F.bodySemi, fontSize: 13, color: C.coral }}>Limpar filtro de data</Text>
+              </TouchableOpacity>
+            ) : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <TouchableOpacity onPress={() => setCalMonth(m => { const d = new Date(m); d.setMonth(d.getMonth() - 1); return d })} hitSlop={8}>
+                <Ionicons name="chevron-back" size={22} color={C.ink} />
+              </TouchableOpacity>
+              <Text style={{ fontFamily: F.bodyBold, fontSize: 17, color: C.ink }}>{PT_MONTH_LONG[calMonth.getMonth()]} {calMonth.getFullYear()}</Text>
+              <TouchableOpacity onPress={() => setCalMonth(m => { const d = new Date(m); d.setMonth(d.getMonth() + 1); return d })} hitSlop={8}>
+                <Ionicons name="chevron-forward" size={22} color={C.ink} />
+              </TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: 'row', marginBottom: 4 }}>
+              {PT_WEEKDAY_SHORT.map(d => <Text key={d} style={{ flex: 1, textAlign: 'center', fontSize: 12, fontFamily: F.bodySemi, color: C.inkSoft, paddingBottom: 8 }}>{d}</Text>)}
+            </View>
+            {(() => {
+              const today = new Date(); today.setHours(0,0,0,0)
+              const firstDay = calMonth.getDay()
+              const daysInMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate()
+              const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
+              while (cells.length % 7 !== 0) cells.push(null)
+              const weeks: (number | null)[][] = []
+              for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
+              return weeks.map((week, wi) => (
+                <View key={wi} style={{ flexDirection: 'row', marginBottom: 4 }}>
+                  {week.map((day, di) => {
+                    if (!day) return <View key={di} style={{ flex: 1, aspectRatio: 1 }} />
+                    const date = new Date(calMonth.getFullYear(), calMonth.getMonth(), day)
+                    date.setHours(0,0,0,0)
+                    const isPast = date < today
+                    const isToday = date.getTime() === today.getTime()
+                    const isSelected = selectedDate?.toDateString() === date.toDateString()
+                    return (
+                      <TouchableOpacity key={di} disabled={isPast} activeOpacity={0.7}
+                        onPress={() => { setSelectedDate(date); setDatePickerOpen(false) }}
+                        style={[{ flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 999, margin: 2 },
+                          isSelected && { backgroundColor: C.ink },
+                          isToday && !isSelected && { backgroundColor: `${C.lime}50` }]}>
+                        <Text style={[{ fontSize: 15, fontFamily: F.bodySemi, color: C.inkSoft },
+                          isPast && { color: C.line },
+                          isToday && !isSelected && { color: C.ink, fontFamily: F.bodyBold },
+                          isSelected && { color: C.cream }]}>
+                          {day}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  })}
+                </View>
+              ))
+            })()}
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal filtros avançados */}
       <Modal visible={filterModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setFilterModal(false)}>
@@ -688,7 +788,7 @@ const s = StyleSheet.create({
     letterSpacing: -0.3, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6,
   },
   header: {
-    paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10,
+    paddingHorizontal: 20, paddingTop: 14, paddingBottom: 12,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
   },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -758,7 +858,7 @@ const s = StyleSheet.create({
     shadowColor: '#1A1813', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
-  cardAccent: { width: 4 },
+  cardAccent: { width: 7 },
   cardInner: { flex: 1, padding: 12 },
 
   cardTopRow: {
@@ -778,10 +878,10 @@ const s = StyleSheet.create({
   cardTime: { fontFamily: F.headingBold, fontSize: 24, color: C.ink, letterSpacing: -0.5 },
   cardDateText: { fontSize: 14, color: C.inkSoft, fontFamily: F.bodySemi },
 
-  cardVenueRow: { gap: 3, marginBottom: 8 },
-  cardVenueText: { fontSize: 13, color: C.inkSoft, fontFamily: F.bodySemi },
+  cardVenueRow: { gap: 4, marginBottom: 8 },
+  cardVenueText: { fontSize: 15, color: C.inkSoft, fontFamily: F.bodySemi },
   reservedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  reservedText: { fontSize: 11, fontFamily: F.bodyBold, color: '#2E7D6E' },
+  reservedText: { fontSize: 14, fontFamily: F.bodyBold, color: '#2E7D6E' },
   priceText: { fontSize: 11, fontFamily: F.bodySemi, color: '#2E7D6E' },
 
   cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
@@ -839,16 +939,26 @@ const s = StyleSheet.create({
   createPromptTitle: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
   createPromptSub: { fontSize: 12, fontFamily: F.body, color: C.inkSoft, marginTop: 2 },
 
-  // Filter adv button
-  filterAdvBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+  // Filter adv button row
+  filterAdvRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     marginHorizontal: 16, marginBottom: 8,
+  },
+  filterAdvBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 7,
     borderRadius: 999, borderWidth: 1.5, borderColor: C.line, backgroundColor: C.card,
   },
   filterAdvBtnActive: { backgroundColor: C.ink, borderColor: C.ink },
   filterAdvText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
   filterAdvClear: { marginLeft: 2 },
+  datePillBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: 999, borderWidth: 1.5, borderColor: C.line, backgroundColor: C.card,
+  },
+  datePillBtnActive: { backgroundColor: C.ink, borderColor: C.ink },
+  datePillText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
 
   // Modal cidade
   modalWrap: { flex: 1, backgroundColor: C.cream },

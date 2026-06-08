@@ -128,7 +128,10 @@ export default function CriarScreen() {
         court_reserved: courtReserved,
       }
       if (notes.trim()) payload.notes = notes.trim()
-      if (categories.length > 0) payload.target_categories = categories
+      if (categories.length > 0) {
+        payload.target_categories = categories
+        payload.target_category = categories[0]
+      }
       if (skillLevel) payload.target_skill_level = skillLevel
       if (courtReserved && courtPrice) payload.court_price_per_person = parseCurrency(courtPrice)
 
@@ -154,7 +157,7 @@ export default function CriarScreen() {
   }
 
   const sportColor = sport ? sportColors[sport] : C.ink
-  const accentColor = sport ? sportColor : C.line  // só colore quando esporte selecionado
+  const accentColor = sport ? sportColor : C.ink
   const durationLabel = formatDuration(startTime, endTime)
 
   return (
@@ -176,8 +179,8 @@ export default function CriarScreen() {
                 const color = sportColors[sp]
                 return (
                   <TouchableOpacity key={sp} onPress={() => selectSport(sp)} activeOpacity={0.85}
-                    style={[s.sportBtn, { backgroundColor: on ? color : C.card, borderColor: on ? color : C.line }]}>
-                    <Text style={{ fontFamily: F.bodyBold, fontSize: 13, color: on ? '#fff' : C.inkSoft, textAlign: 'center' }}>
+                    style={[s.sportBtn, { backgroundColor: on ? color : C.card, borderColor: on ? color : C.inkSoft }]}>
+                    <Text style={{ fontFamily: F.bodyBold, fontSize: 14, color: on ? '#fff' : C.ink, textAlign: 'center' }}>
                       {sportLabels[sp]}
                     </Text>
                   </TouchableOpacity>
@@ -186,18 +189,65 @@ export default function CriarScreen() {
             </View>
           </View>
 
+          {/* Dica: selecione esporte */}
+          {!sport ? (
+            <View style={s.sportHint}>
+              <Ionicons name="arrow-up" size={13} color={C.inkSoft} />
+              <Text style={s.sportHintText}>Selecione um esporte para continuar</Text>
+            </View>
+          ) : null}
+
+          {/* Campos bloqueados até esporte ser selecionado */}
+          <View style={{ gap: 16, opacity: sport ? 1 : 0.35 }} pointerEvents={sport ? 'auto' : 'none'}>
+
+          {/* Data */}
+          <View>
+            <SectionLabel>Data</SectionLabel>
+            <TouchableOpacity onPress={() => setCalOpen(true)} activeOpacity={0.8}
+              style={[s.dateBtn, { borderColor: selDay ? accentColor : C.inkSoft }]}>
+              <Ionicons name="calendar-outline" size={18} color={selDay ? accentColor : C.inkSoft} />
+              <Text style={[s.dateBtnText, { color: selDay ? C.ink : C.inkSoft, fontFamily: selDay ? F.bodyBold : F.bodySemi }]}>
+                {selDay
+                  ? selDay.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
+                  : 'Selecionar data'}
+              </Text>
+              <Ionicons name="chevron-down" size={14} color={C.inkSoft} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Horário — início e fim */}
+          <View>
+            <SectionLabel>Horário</SectionLabel>
+            <View style={s.timeRow}>
+              <TouchableOpacity style={[s.timeChip, { borderColor: accentColor }]} activeOpacity={0.7} onPress={() => setTimePicker('start')}>
+                <Text style={s.timeChipLabel}>Início</Text>
+                <Text style={[s.timeChipValue, { color: accentColor }]}>{startTime}</Text>
+              </TouchableOpacity>
+              <Ionicons name="arrow-forward" size={18} color={accentColor} />
+              <TouchableOpacity style={[s.timeChip, { borderColor: accentColor }]} activeOpacity={0.7} onPress={() => setTimePicker('end')}>
+                <Text style={s.timeChipLabel}>Fim</Text>
+                <Text style={[s.timeChipValue, { color: accentColor }]}>{endTime}</Text>
+              </TouchableOpacity>
+            </View>
+            {durationLabel ? (
+              <Text style={s.durationHint}>
+                <Ionicons name="time-outline" size={12} color={C.inkSoft} /> Duração: {durationLabel}
+              </Text>
+            ) : (
+              <Text style={s.durationHintError}>O horário de fim deve ser depois do início</Text>
+            )}
+          </View>
+
           {/* Categoria */}
           {(sport === 'padel' || sport === 'beach_tennis') ? (
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <SectionLabel style={{ marginBottom: 0 }}>Categoria</SectionLabel>
                 {categories.length > 0 ? (
-                  <Text style={{ fontSize: 11, fontFamily: F.bodySemi, color: C.inkSoft }}>
+                  <Text style={{ fontSize: 13, fontFamily: F.bodySemi, color: C.inkSoft }}>
                     {categories.length} selecionada{categories.length > 1 ? 's' : ''}
                   </Text>
-                ) : (
-                  <Text style={{ fontSize: 11, fontFamily: F.bodySemi, color: C.coral }}>obrigatório</Text>
-                )}
+                ) : null}
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {(sport === 'padel' ? PADEL_CATS : BEACH_CATS).map(cat => (
@@ -233,44 +283,6 @@ export default function CriarScreen() {
             </View>
           ) : null}
 
-          {/* Data */}
-          <View>
-            <SectionLabel>Data</SectionLabel>
-            <TouchableOpacity onPress={() => setCalOpen(true)} activeOpacity={0.8}
-              style={[s.dateBtn, selDay && { borderColor: accentColor }]}>
-              <Ionicons name="calendar-outline" size={18} color={selDay ? accentColor : C.inkSoft} />
-              <Text style={[s.dateBtnText, selDay && { color: C.ink, fontFamily: F.bodyBold }]}>
-                {selDay
-                  ? selDay.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
-                  : 'Selecionar data'}
-              </Text>
-              <Ionicons name="chevron-down" size={14} color={C.inkSoft} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Horário — início e fim */}
-          <View>
-            <SectionLabel>Horário</SectionLabel>
-            <View style={s.timeRow}>
-              <TouchableOpacity style={[s.timeChip, { borderColor: accentColor }]} activeOpacity={0.7} onPress={() => setTimePicker('start')}>
-                <Text style={s.timeChipLabel}>Início</Text>
-                <Text style={[s.timeChipValue, { color: accentColor }]}>{startTime}</Text>
-              </TouchableOpacity>
-              <Ionicons name="arrow-forward" size={18} color={accentColor} />
-              <TouchableOpacity style={[s.timeChip, { borderColor: accentColor }]} activeOpacity={0.7} onPress={() => setTimePicker('end')}>
-                <Text style={s.timeChipLabel}>Fim</Text>
-                <Text style={[s.timeChipValue, { color: accentColor }]}>{endTime}</Text>
-              </TouchableOpacity>
-            </View>
-            {durationLabel ? (
-              <Text style={s.durationHint}>
-                <Ionicons name="time-outline" size={12} color={C.inkSoft} /> Duração: {durationLabel}
-              </Text>
-            ) : (
-              <Text style={s.durationHintError}>O horário de fim deve ser depois do início</Text>
-            )}
-          </View>
-
           {/* Vagas */}
           <View>
             <SectionLabel>Vagas abertas</SectionLabel>
@@ -280,9 +292,9 @@ export default function CriarScreen() {
                 const on = vacancies === total
                 return (
                   <TouchableOpacity key={open} onPress={() => setVacancies(total)} activeOpacity={0.85}
-                    style={[s.vacancyCard, { backgroundColor: on ? sportColor : C.card, borderColor: on ? sportColor : C.line }]}>
+                    style={[s.vacancyCard, { backgroundColor: on ? sportColor : C.card, borderColor: on ? sportColor : C.inkSoft }]}>
                     <Text style={{ fontFamily: F.headingBold, fontSize: 18, color: on ? '#fff' : C.ink }}>{open}</Text>
-                    <Text style={{ fontSize: 9, fontFamily: F.bodySemi, color: on ? 'rgba(255,255,255,0.7)' : C.inkSoft }}>
+                    <Text style={{ fontSize: 11, fontFamily: F.bodySemi, color: on ? 'rgba(255,255,255,0.7)' : C.inkSoft }}>
                       vaga{open > 1 ? 's' : ''}
                     </Text>
                   </TouchableOpacity>
@@ -345,6 +357,8 @@ export default function CriarScreen() {
               style={s.notesInput}
             />
           </View>
+
+          </View>{/* fim campos bloqueados */}
 
           <TouchableOpacity onPress={submit} disabled={submitting} activeOpacity={0.85}
             style={[s.publishBtn, { backgroundColor: sportColor === C.ink ? C.lime : sportColor }]}>
@@ -470,9 +484,15 @@ const s = StyleSheet.create({
   headerWrap: { padding: 20, paddingBottom: 12, borderBottomWidth: 1.5, borderBottomColor: C.line },
   title: { fontFamily: F.headingBold, fontSize: 22, color: C.ink, letterSpacing: -0.5 },
   subtitle: { fontSize: 12, color: C.inkSoft, fontFamily: F.body, marginTop: 2 },
-  scroll: { padding: 20, gap: 24, paddingBottom: 40 },
+  scroll: { padding: 20, gap: 16, paddingBottom: 40 },
 
-  sportBtn: { flex: 1, paddingVertical: 14, borderRadius: 18, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  sportBtn: { flex: 1, paddingVertical: 14, borderRadius: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  sportHint: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: `${C.lime}30`, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8,
+  },
+  sportHintText: { fontSize: 13, fontFamily: F.bodySemi, color: C.ink },
 
   // Data
   dateBtn: {
@@ -480,7 +500,7 @@ const s = StyleSheet.create({
     backgroundColor: C.card, borderRadius: 14, borderWidth: 1.5, borderColor: C.line,
     paddingHorizontal: 14, paddingVertical: 14,
   },
-  dateBtnText: { flex: 1, fontSize: 14, fontFamily: F.bodySemi, color: C.inkSoft },
+  dateBtnText: { flex: 1, fontSize: 16, fontFamily: F.bodySemi, color: C.inkSoft },
 
   // Calendário (modal)
   calHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
@@ -490,7 +510,7 @@ const s = StyleSheet.create({
   calCell: { flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 999, margin: 2 },
   calCellSelected: { backgroundColor: C.ink },
   calCellToday: { backgroundColor: `${C.lime}50` },
-  calCellText: { fontSize: 15, fontFamily: F.bodySemi, color: C.inkSoft },
+  calCellText: { fontSize: 15, fontFamily: F.bodySemi, color: C.ink },
 
   // Horário
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -504,13 +524,13 @@ const s = StyleSheet.create({
   durationHintError: { marginTop: 8, fontSize: 12, color: C.coral, fontFamily: F.bodySemi },
 
   vacancyCard: { flex: 1, padding: 8, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', gap: 2 },
-  helper: { marginTop: 6, fontSize: 11, color: C.inkSoft, fontFamily: F.body },
-  catHint: { marginTop: 6, fontSize: 12, color: C.inkSoft, fontFamily: F.bodySemi },
-  catHintOk: { marginTop: 6, fontSize: 12, color: C.success, fontFamily: F.bodyBold },
+  helper: { marginTop: 8, fontSize: 13, color: C.inkSoft, fontFamily: F.bodySemi },
+  catHint: { marginTop: 8, fontSize: 13, color: C.inkSoft, fontFamily: F.bodySemi },
+  catHintOk: { marginTop: 8, fontSize: 13, color: C.success, fontFamily: F.bodyBold },
 
   toggleRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    padding: 14, borderRadius: 16, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
+    padding: 14, borderRadius: 16, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.inkSoft,
   },
   toggleTitle: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
   toggleSub: { fontSize: 12, color: C.inkSoft, fontFamily: F.body, marginTop: 2 },

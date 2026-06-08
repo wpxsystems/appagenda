@@ -83,7 +83,7 @@ export function Pill({ label, active, onPress, small, count, color }: {
     <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[
       styles.pill,
       { paddingHorizontal: small ? 12 : 16, paddingVertical: small ? 6 : 8 },
-      { backgroundColor: active ? activeBg : C.card, borderColor: active ? activeBg : C.line },
+      { backgroundColor: active ? activeBg : C.card, borderColor: active ? activeBg : C.inkSoft },
     ]}>
       <Text style={[styles.pillText, { color: active ? activeText : C.inkSoft, fontSize: small ? 12 : 13 }]}>
         {label}
@@ -213,8 +213,8 @@ const styles = StyleSheet.create({
   pillText: { fontFamily: F.bodyBold },
 
   sectionLabel: {
-    fontSize: 11, fontFamily: F.bodyBold, color: C.inkSoft,
-    textTransform: 'uppercase', letterSpacing: 2,
+    fontSize: 13, fontFamily: F.bodyBold, color: C.ink,
+    textTransform: 'uppercase', letterSpacing: 1.5,
     marginBottom: 10,
   },
 
