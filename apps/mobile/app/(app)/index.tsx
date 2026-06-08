@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Image, Modal, FlatList,
+  ActivityIndicator, RefreshControl, Image, Modal, FlatList, Switch,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
@@ -31,6 +31,8 @@ interface Game {
   target_categories: string[] | null
   target_category: string | null
   target_skill_level: string | null
+  target_play_format: string | null
+  gender_type: string | null
   notes: string | null
   venue_nome: string | null
   venue_endereco: string | null
@@ -38,6 +40,66 @@ interface Game {
   participant_count: number
   open_spots: number
   participants: GameParticipant[]
+}
+
+interface AdvFilters {
+  day: 'any' | 'today' | 'tomorrow' | 'week'
+  categories: string[]
+  skillLevel: string
+  format: string
+  gender: string
+  courtReserved: boolean | null
+}
+
+const DEFAULT_FILTERS: AdvFilters = {
+  day: 'any', categories: [], skillLevel: '', format: '', gender: '', courtReserved: null,
+}
+
+const PADEL_CATS  = ['8a','7a','6a','5a','4a','3a','2a','Open']
+const BEACH_CATS  = ['C','B','A','Open']
+const SKILL_OPTS  = [['beginner','Iniciante'],['intermediate','Intermediário'],['advanced','Avançado'],['competitive','Competitivo']] as const
+const FORMAT_OPTS = [['singles','Simples'],['doubles','Duplas']] as const
+const GENDER_OPTS = [['mixed','Misto'],['male','Masculino'],['female','Feminino']] as const
+const DAY_OPTS    = [['any','Qualquer dia'],['today','Hoje'],['tomorrow','Amanhã'],['week','Esta semana']] as const
+
+function applyAdvFilters(games: Game[], f: AdvFilters): Game[] {
+  return games.filter(g => {
+    // Dia
+    if (f.day !== 'any') {
+      const gd = new Date(g.scheduled_at)
+      const today = new Date(); today.setHours(0,0,0,0)
+      const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1)
+      const weekEnd = new Date(today); weekEnd.setDate(today.getDate()+7)
+      if (f.day === 'today'    && !(gd >= today && gd < tomorrow)) return false
+      if (f.day === 'tomorrow' && !(gd >= tomorrow && gd < new Date(tomorrow.getTime()+86400000))) return false
+      if (f.day === 'week'     && !(gd >= today && gd < weekEnd)) return false
+    }
+    // Categoria
+    if (f.categories.length > 0) {
+      const gameCats = g.target_categories?.length ? g.target_categories : (g.target_category ? [g.target_category] : [])
+      if (!f.categories.some(c => gameCats.includes(c))) return false
+    }
+    // Nível (tênis)
+    if (f.skillLevel && g.target_skill_level && g.target_skill_level !== f.skillLevel) return false
+    // Formato
+    if (f.format && g.target_play_format && g.target_play_format !== f.format && g.target_play_format !== 'both') return false
+    // Gênero
+    if (f.gender && g.gender_type !== f.gender) return false
+    // Quadra reservada
+    if (f.courtReserved !== null && g.court_reserved !== f.courtReserved) return false
+    return true
+  })
+}
+
+function countActiveFilters(f: AdvFilters): number {
+  let n = 0
+  if (f.day !== 'any') n++
+  if (f.categories.length > 0) n++
+  if (f.skillLevel) n++
+  if (f.format) n++
+  if (f.gender) n++
+  if (f.courtReserved !== null) n++
+  return n
 }
 
 const FILTERS = [
@@ -198,6 +260,8 @@ export default function DescobrirScreen() {
   const [cidades, setCidades] = useState<Cidade[]>([])
   const [cidadeModal, setCidadeModal] = useState(false)
   const [mySports, setMySports] = useState<string[]>([])
+  const [advFilters, setAdvFilters] = useState<AdvFilters>(DEFAULT_FILTERS)
+  const [filterModal, setFilterModal] = useState(false)
 
   useEffect(() => {
     apiGet<Cidade[]>('/cidades').then(setCidades).catch(() => {})
@@ -233,9 +297,13 @@ export default function DescobrirScreen() {
   }, [cidadeId, cidades])
 
   const todayStr = new Date().toDateString()
-  const games = allGames
-    .filter(g => sportFilter === 'all' || g.sport === sportFilter)
-    .filter(g => dateFilter === 'all' || new Date(g.scheduled_at).toDateString() === todayStr)
+  const games = applyAdvFilters(
+    allGames
+      .filter(g => sportFilter === 'all' || g.sport === sportFilter)
+      .filter(g => dateFilter === 'all' || new Date(g.scheduled_at).toDateString() === todayStr),
+    advFilters,
+  )
+  const activeFilterCount = countActiveFilters(advFilters)
 
   const counts: Record<string, number> = {
     all: allGames.length,
@@ -323,6 +391,27 @@ export default function DescobrirScreen() {
         })}
       </View>
 
+      {/* Botão de filtros avançados */}
+      <TouchableOpacity
+        onPress={() => setFilterModal(true)}
+        activeOpacity={0.8}
+        style={[s.filterAdvBtn, activeFilterCount > 0 && s.filterAdvBtnActive]}
+      >
+        <Ionicons name="options-outline" size={15} color={activeFilterCount > 0 ? '#fff' : C.inkSoft} />
+        <Text style={[s.filterAdvText, activeFilterCount > 0 && { color: '#fff' }]}>
+          {activeFilterCount > 0 ? `Filtros (${activeFilterCount})` : 'Filtros'}
+        </Text>
+        {activeFilterCount > 0 ? (
+          <TouchableOpacity
+            onPress={() => setAdvFilters(DEFAULT_FILTERS)}
+            hitSlop={8}
+            style={s.filterAdvClear}
+          >
+            <Ionicons name="close-circle" size={14} color="rgba(255,255,255,0.8)" />
+          </TouchableOpacity>
+        ) : null}
+      </TouchableOpacity>
+
       {/* Games list */}
       {loading ? (
         <ActivityIndicator color={C.ink} style={{ marginTop: 48 }} />
@@ -390,6 +479,159 @@ export default function DescobrirScreen() {
           )}
         </ScrollView>
       )}
+
+      {/* Modal filtros avançados */}
+      <Modal visible={filterModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setFilterModal(false)}>
+        <View style={{ flex: 1, backgroundColor: C.cream }}>
+          <View style={fm.header}>
+            <Text style={fm.title}>Filtros</Text>
+            <TouchableOpacity onPress={() => setFilterModal(false)} hitSlop={10}>
+              <Ionicons name="close" size={22} color={C.inkSoft} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 20, gap: 24, paddingBottom: 40 }}>
+
+            {/* Dia */}
+            <View>
+              <Text style={fm.sectionLabel}>Dia</Text>
+              <View style={fm.chipRow}>
+                {DAY_OPTS.map(([val, lbl]) => {
+                  const on = advFilters.day === val
+                  return (
+                    <TouchableOpacity key={val} onPress={() => setAdvFilters(p => ({ ...p, day: val }))}
+                      activeOpacity={0.8} style={[fm.chip, on && fm.chipActive]}>
+                      <Text style={[fm.chipText, on && fm.chipTextActive]}>{lbl}</Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </View>
+
+            {/* Categoria — padel */}
+            {(sportFilter === 'all' || sportFilter === 'padel') ? (
+              <View>
+                <Text style={fm.sectionLabel}>Categoria Padel</Text>
+                <View style={fm.chipRow}>
+                  {PADEL_CATS.map(cat => {
+                    const on = advFilters.categories.includes(cat)
+                    return (
+                      <TouchableOpacity key={cat} onPress={() => setAdvFilters(p => ({
+                        ...p,
+                        categories: on ? p.categories.filter(c => c !== cat) : [...p.categories, cat],
+                      }))} activeOpacity={0.8} style={[fm.chip, on && fm.chipActive]}>
+                        <Text style={[fm.chipText, on && fm.chipTextActive]}>
+                          {cat === 'Open' ? 'Open' : `Cat. ${cat}`}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  })}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Categoria — beach tennis */}
+            {(sportFilter === 'all' || sportFilter === 'beach_tennis') ? (
+              <View>
+                <Text style={fm.sectionLabel}>Categoria Beach Tennis</Text>
+                <View style={fm.chipRow}>
+                  {BEACH_CATS.map(cat => {
+                    const on = advFilters.categories.includes(cat)
+                    return (
+                      <TouchableOpacity key={`b-${cat}`} onPress={() => setAdvFilters(p => ({
+                        ...p,
+                        categories: on ? p.categories.filter(c => c !== cat) : [...p.categories, cat],
+                      }))} activeOpacity={0.8} style={[fm.chip, on && fm.chipActive]}>
+                        <Text style={[fm.chipText, on && fm.chipTextActive]}>
+                          {cat === 'Open' ? 'Open' : `Cat. ${cat}`}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  })}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Nível — tênis */}
+            {(sportFilter === 'all' || sportFilter === 'tennis') ? (
+              <View>
+                <Text style={fm.sectionLabel}>Nível (Tênis)</Text>
+                <View style={fm.chipRow}>
+                  {SKILL_OPTS.map(([val, lbl]) => {
+                    const on = advFilters.skillLevel === val
+                    return (
+                      <TouchableOpacity key={val} onPress={() => setAdvFilters(p => ({ ...p, skillLevel: on ? '' : val }))}
+                        activeOpacity={0.8} style={[fm.chip, on && fm.chipActive]}>
+                        <Text style={[fm.chipText, on && fm.chipTextActive]}>{lbl}</Text>
+                      </TouchableOpacity>
+                    )
+                  })}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Formato */}
+            <View>
+              <Text style={fm.sectionLabel}>Formato</Text>
+              <View style={fm.chipRow}>
+                {FORMAT_OPTS.map(([val, lbl]) => {
+                  const on = advFilters.format === val
+                  return (
+                    <TouchableOpacity key={val} onPress={() => setAdvFilters(p => ({ ...p, format: on ? '' : val }))}
+                      activeOpacity={0.8} style={[fm.chip, on && fm.chipActive]}>
+                      <Text style={[fm.chipText, on && fm.chipTextActive]}>{lbl}</Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </View>
+
+            {/* Gênero */}
+            <View>
+              <Text style={fm.sectionLabel}>Gênero</Text>
+              <View style={fm.chipRow}>
+                {GENDER_OPTS.map(([val, lbl]) => {
+                  const on = advFilters.gender === val
+                  return (
+                    <TouchableOpacity key={val} onPress={() => setAdvFilters(p => ({ ...p, gender: on ? '' : val }))}
+                      activeOpacity={0.8} style={[fm.chip, on && fm.chipActive]}>
+                      <Text style={[fm.chipText, on && fm.chipTextActive]}>{lbl}</Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </View>
+
+            {/* Quadra reservada */}
+            <View style={fm.switchRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={fm.switchLabel}>Apenas quadra reservada</Text>
+                <Text style={fm.switchSub}>Mostrar só jogos com quadra confirmada</Text>
+              </View>
+              <Switch
+                value={advFilters.courtReserved === true}
+                onValueChange={v => setAdvFilters(p => ({ ...p, courtReserved: v ? true : null }))}
+                trackColor={{ false: C.line, true: C.lime }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            {/* Ações */}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity onPress={() => setAdvFilters(DEFAULT_FILTERS)} activeOpacity={0.8}
+                style={[fm.actionBtn, fm.actionBtnGhost]}>
+                <Text style={fm.actionBtnGhostText}>Limpar tudo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setFilterModal(false)} activeOpacity={0.85}
+                style={[fm.actionBtn, fm.actionBtnPrimary]}>
+                <Text style={fm.actionBtnPrimaryText}>
+                  Ver {games.length} jogo{games.length !== 1 ? 's' : ''}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
 
       {/* Modal seleção de cidade */}
       <Modal
@@ -594,6 +836,17 @@ const s = StyleSheet.create({
   createPromptTitle: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
   createPromptSub: { fontSize: 12, fontFamily: F.body, color: C.inkSoft, marginTop: 2 },
 
+  // Filter adv button
+  filterAdvBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    marginHorizontal: 16, marginBottom: 8,
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: 999, borderWidth: 1.5, borderColor: C.line, backgroundColor: C.card,
+  },
+  filterAdvBtnActive: { backgroundColor: C.ink, borderColor: C.ink },
+  filterAdvText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
+  filterAdvClear: { marginLeft: 2 },
+
   // Modal cidade
   modalWrap: { flex: 1, backgroundColor: C.cream },
   modalHeader: {
@@ -608,4 +861,41 @@ const s = StyleSheet.create({
   },
   cidadeNome: { fontSize: 15, fontFamily: F.bodyBold, color: C.inkSoft },
   cidadeEstado: { fontSize: 12, fontFamily: F.body, color: C.inkSoft, marginTop: 1 },
+})
+
+// ── Filter modal styles ────────────────────────────────────────────────────────
+const fm = StyleSheet.create({
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: 20, borderBottomWidth: 1, borderBottomColor: C.line,
+  },
+  title: { fontFamily: F.headingBold, fontSize: 20, color: C.ink, letterSpacing: -0.3 },
+  sectionLabel: {
+    fontSize: 11, fontFamily: F.bodyBold, color: C.inkSoft,
+    textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 10,
+  },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
+    borderWidth: 1.5, borderColor: C.line, backgroundColor: C.card,
+  },
+  chipActive: { backgroundColor: C.ink, borderColor: C.ink },
+  chipText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
+  chipTextActive: { color: C.cream },
+  switchRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 14, borderRadius: 16,
+    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
+  },
+  switchLabel: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
+  switchSub: { fontSize: 12, fontFamily: F.body, color: C.inkSoft, marginTop: 2 },
+  actionBtn: {
+    flex: 1, paddingVertical: 14, borderRadius: 999, alignItems: 'center',
+  },
+  actionBtnGhost: {
+    borderWidth: 1.5, borderColor: C.line, backgroundColor: C.card,
+  },
+  actionBtnGhostText: { fontFamily: F.bodyBold, fontSize: 14, color: C.inkSoft },
+  actionBtnPrimary: { backgroundColor: C.ink },
+  actionBtnPrimaryText: { fontFamily: F.headingBold, fontSize: 14, color: C.lime },
 })
