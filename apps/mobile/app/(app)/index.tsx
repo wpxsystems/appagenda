@@ -278,7 +278,6 @@ export default function DescobrirScreen() {
   return (
     <Screen>
       {/* Header */}
-      <Text style={s.greeting}>{greeting()}{firstName ? `, ${firstName}` : ''} 👋</Text>
       <View style={s.header}>
         <TouchableOpacity onPress={() => setCidadeModal(true)} activeOpacity={0.7} style={s.locationRow}>
           <Ionicons name="location-outline" size={13} color={C.inkSoft} />
@@ -452,7 +451,7 @@ const s = StyleSheet.create({
     letterSpacing: -0.3, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6,
   },
   header: {
-    paddingHorizontal: 20, paddingBottom: 10,
+    paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
   },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
