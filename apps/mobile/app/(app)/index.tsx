@@ -525,10 +525,10 @@ const s = StyleSheet.create({
   filterSegmentFirst: { borderLeftWidth: 0 },
   filterSegmentLast:  { borderRightWidth: 0 },
   filterSegmentActive: { backgroundColor: C.ink },
-  filterSegmentText: { fontSize: 12, fontFamily: F.bodyBold, color: C.inkSoft },
+  filterSegmentText: { fontSize: 15, fontFamily: F.bodyBold, color: C.inkSoft },
   filterSegmentTextActive: { color: C.cream },
   filterSegmentCount: {
-    fontSize: 10, fontFamily: F.bodyBold, color: C.inkSoft,
+    fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft,
   },
   filterSegmentCountActive: { color: `${C.cream}80` },
   // kept for any remaining refs
