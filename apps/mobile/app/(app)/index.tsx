@@ -41,10 +41,10 @@ interface Game {
 }
 
 const FILTERS = [
-  { key: 'all',          label: 'Todos',  emoji: '🏆', color: null },
-  { key: 'padel',        label: 'Padel',  emoji: '🎾', color: '#2E6F9E' },
-  { key: 'beach_tennis', label: 'Beach',  emoji: '🏖️', color: '#2E8B57' },
-  { key: 'tennis',       label: 'Tênis',  emoji: '🎾', color: '#D4880A' },
+  { key: 'all',          label: 'Todos' },
+  { key: 'padel',        label: 'Padel' },
+  { key: 'beach_tennis', label: 'Beach' },
+  { key: 'tennis',       label: 'Tênis' },
 ] as const
 
 const AVATAR_COLORS = ['#2E6F9E','#D4880A','#B03A2E','#5B7A4C','#8A5A9E','#C2607F','#3A7A6E','#A0622A']
@@ -335,27 +335,13 @@ export default function DescobrirScreen() {
         {FILTERS.map(f => {
           const active = sportFilter === f.key
           const count = counts[f.key] ?? 0
-          const activeBg = f.color ?? C.ink
-          const activeText = '#fff'
           return (
-            <TouchableOpacity
-              key={f.key}
-              onPress={() => setSportFilter(f.key)}
-              activeOpacity={0.8}
-              style={[
-                s.filterPill,
-                active && { backgroundColor: activeBg, borderColor: activeBg },
-              ]}
-            >
-              <Text style={s.filterEmoji}>{f.emoji}</Text>
-              <Text style={[s.filterPillText, active && { color: activeText }]}>
+            <TouchableOpacity key={f.key} onPress={() => setSportFilter(f.key)} activeOpacity={0.8}
+              style={[s.filterPill, active && s.filterPillActive]}>
+              <Text style={[s.filterPillText, active && s.filterPillTextActive]}>
                 {f.label}
+                {count > 0 ? <Text style={[s.filterCount, active && s.filterCountActive]}> ({count})</Text> : null}
               </Text>
-              {count > 0 ? (
-                <View style={[s.filterBadge, active && { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-                  <Text style={[s.filterBadgeText, active && { color: '#fff' }]}>{count}</Text>
-                </View>
-              ) : null}
             </TouchableOpacity>
           )
         })}
@@ -513,19 +499,16 @@ const s = StyleSheet.create({
 
   // Filters
   filterScroll: { flexGrow: 0 },
-  filterRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 14, alignItems: 'center' },
+  filterRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 14 },
   filterPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999,
     backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
   },
-  filterEmoji: { fontSize: 13 },
+  filterPillActive: { backgroundColor: C.ink, borderColor: C.ink },
   filterPillText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
-  filterBadge: {
-    backgroundColor: C.line, borderRadius: 999,
-    paddingHorizontal: 6, paddingVertical: 1, minWidth: 18, alignItems: 'center',
-  },
-  filterBadgeText: { fontSize: 10, fontFamily: F.bodyBold, color: C.inkSoft },
+  filterPillTextActive: { color: C.cream },
+  filterCount: { fontSize: 12, fontFamily: F.bodySemi, color: C.inkSoft },
+  filterCountActive: { color: `${C.cream}CC` },
 
   // Scroll
   scroll: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
