@@ -281,8 +281,8 @@ export default function CriarScreen() {
                 return (
                   <TouchableOpacity key={open} onPress={() => setVacancies(total)} activeOpacity={0.85}
                     style={[s.vacancyCard, { backgroundColor: on ? sportColor : C.card, borderColor: on ? sportColor : C.line }]}>
-                    <Text style={{ fontFamily: F.headingBold, fontSize: 18, color: on ? C.ink : C.ink }}>{open}</Text>
-                    <Text style={{ fontSize: 9, fontFamily: F.bodySemi, color: on ? 'rgba(26,24,19,0.5)' : C.inkSoft }}>
+                    <Text style={{ fontFamily: F.headingBold, fontSize: 18, color: on ? '#fff' : C.ink }}>{open}</Text>
+                    <Text style={{ fontSize: 9, fontFamily: F.bodySemi, color: on ? 'rgba(255,255,255,0.7)' : C.inkSoft }}>
                       vaga{open > 1 ? 's' : ''}
                     </Text>
                   </TouchableOpacity>

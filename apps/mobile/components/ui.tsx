@@ -77,22 +77,23 @@ export function Pill({ label, active, onPress, small, count, color }: {
   label: string; active: boolean; onPress: () => void; small?: boolean; count?: number; color?: string
 }) {
   const activeBg = color ?? C.ink
-  const isLight = !!color // cores de esporte usam texto escuro; ink usa cream
+  // sem cor customizada → fundo ink, texto cream; com cor de esporte → fundo colorido, texto branco
+  const activeText = color ? '#fff' : C.cream
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[
       styles.pill,
       { paddingHorizontal: small ? 12 : 16, paddingVertical: small ? 6 : 8 },
       { backgroundColor: active ? activeBg : C.card, borderColor: active ? activeBg : C.line },
     ]}>
-      <Text style={[styles.pillText, { color: active ? (isLight ? C.ink : C.cream) : C.inkSoft, fontSize: small ? 12 : 13 }]}>
+      <Text style={[styles.pillText, { color: active ? activeText : C.inkSoft, fontSize: small ? 12 : 13 }]}>
         {label}
       </Text>
       {count !== undefined && count > 0 ? (
         <View style={{
           marginLeft: 6, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999,
-          backgroundColor: active ? 'rgba(0,0,0,0.15)' : C.line,
+          backgroundColor: active ? 'rgba(255,255,255,0.25)' : C.line,
         }}>
-          <Text style={{ fontSize: 11, fontFamily: F.bodyBold, color: active ? (isLight ? C.ink : C.lime) : C.inkSoft }}>{count}</Text>
+          <Text style={{ fontSize: 11, fontFamily: F.bodyBold, color: active ? '#fff' : C.inkSoft }}>{count}</Text>
         </View>
       ) : null}
     </TouchableOpacity>
