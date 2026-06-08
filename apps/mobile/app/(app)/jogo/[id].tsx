@@ -2,14 +2,14 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
-  StatusBar, Share,
+  StatusBar, Share, Modal, Image,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useToast } from '../../../components/Toast'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '../../../lib/auth-context'
-import { apiGet, apiPost } from '../../../lib/api'
+import { apiGet, apiPost, apiDelete } from '../../../lib/api'
 import { colors as C, fontFamily as F } from '@racket-app/ui'
 import { sportColors, sportLabels } from '@racket-app/ui'
 
@@ -56,6 +56,199 @@ interface Message {
   created_at: string
   user?: { id: string; nome: string }
 }
+
+interface PublicProfile {
+  id: string
+  nome: string
+  nickname: string | null
+  bio: string | null
+  avatar_url: string | null
+  games_played: number
+  sport_profiles: { sport: string; category: string | null; skill_level: string | null }[]
+  avg_score: number | null
+  top_badges: { key: string; count: number }[]
+  is_favorite: boolean
+}
+
+const BADGE_LABELS: Record<string, string> = {
+  pontual: 'Pontual', respeitoso: 'Respeitoso', simpatico: 'Simpático',
+  competitivo: 'Competitivo', comprometido: 'Comprometido', comunicativo: 'Comunicativo',
+  esportivo: 'Esportivo', parceiro: 'Ótimo parceiro', energia: 'Energia positiva', jogaria: 'Jogaria novamente',
+}
+
+// ── UserProfileModal ─────────────────────────────────────────────────────────
+
+function UserProfileModal({ userId, onClose }: { userId: string | null; onClose: () => void }) {
+  const [profile, setProfile] = useState<PublicProfile | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [toggling, setToggling] = useState(false)
+  const { showToast } = useToast()
+
+  useEffect(() => {
+    if (!userId) { setProfile(null); return }
+    setLoading(true)
+    apiGet<PublicProfile>(`/users/${userId}`)
+      .then(setProfile)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [userId])
+
+  async function toggleFavorite() {
+    if (!profile) return
+    setToggling(true)
+    try {
+      if (profile.is_favorite) {
+        await apiDelete(`/community/favorites/${profile.id}`)
+      } else {
+        await apiPost(`/community/favorites/${profile.id}`, {})
+      }
+      setProfile(p => p ? { ...p, is_favorite: !p.is_favorite } : p)
+      showToast({ type: 'success', title: profile.is_favorite ? 'Conexão removida' : 'Conectado!' })
+    } catch {
+      showToast({ type: 'error', title: 'Erro ao conectar' })
+    } finally {
+      setToggling(false)
+    }
+  }
+
+  return (
+    <Modal visible={!!userId} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: C.cream }}>
+        <View style={pm.header}>
+          <Text style={pm.title}>Perfil</Text>
+          <TouchableOpacity onPress={onClose} hitSlop={12}>
+            <Ionicons name="close" size={22} color={C.inkSoft} />
+          </TouchableOpacity>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator color={C.ink} style={{ marginTop: 48 }} />
+        ) : profile ? (
+          <ScrollView contentContainerStyle={pm.scroll}>
+            {/* Avatar + nome */}
+            <View style={pm.heroSection}>
+              {profile.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={pm.avatar} />
+              ) : (
+                <View style={[pm.avatar, { backgroundColor: avatarColor(profile.id), alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={pm.avatarInitials}>{profile.nome.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()}</Text>
+                </View>
+              )}
+              <Text style={pm.nome}>{profile.nome}</Text>
+              {profile.nickname ? <Text style={pm.nickname}>@{profile.nickname}</Text> : null}
+              {profile.bio ? <Text style={pm.bio}>{profile.bio}</Text> : null}
+              <Text style={pm.gamesPlayed}>{profile.games_played ?? 0} jogos disputados</Text>
+            </View>
+
+            {/* Nota média */}
+            {profile.avg_score ? (
+              <View style={pm.card}>
+                <Text style={pm.cardTitle}>Avaliação</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                  {[1,2,3,4,5].map(n => (
+                    <Ionicons key={n} name={n <= Math.round(profile.avg_score!) ? 'star' : 'star-outline'} size={20} color="#F5A623" />
+                  ))}
+                  <Text style={pm.scoreText}>{profile.avg_score.toFixed(1)}</Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* Badges */}
+            {profile.top_badges.length > 0 ? (
+              <View style={pm.card}>
+                <Text style={pm.cardTitle}>Destaques</Text>
+                <View style={pm.badgesWrap}>
+                  {profile.top_badges.map(b => (
+                    <View key={b.key} style={pm.badge}>
+                      <Text style={pm.badgeText}>{BADGE_LABELS[b.key] ?? b.key}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Esportes */}
+            {profile.sport_profiles.length > 0 ? (
+              <View style={pm.card}>
+                <Text style={pm.cardTitle}>Esportes</Text>
+                <View style={{ gap: 8, marginTop: 6 }}>
+                  {profile.sport_profiles.map((sp, i) => {
+                    const color = sportColors[sp.sport as keyof typeof sportColors] ?? C.inkSoft
+                    const label = sportLabels[sp.sport as keyof typeof sportLabels] ?? sp.sport
+                    return (
+                      <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View style={{ backgroundColor: `${color}20`, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+                          <Text style={{ fontSize: 11, fontFamily: F.bodyBold, color }}>{label.toUpperCase()}</Text>
+                        </View>
+                        {sp.category ? <Text style={pm.spDetail}>Cat. {sp.category}</Text> : null}
+                        {sp.skill_level ? <Text style={pm.spDetail}>{sp.skill_level}</Text> : null}
+                      </View>
+                    )
+                  })}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Botão conectar */}
+            <TouchableOpacity
+              onPress={toggleFavorite}
+              disabled={toggling}
+              activeOpacity={0.85}
+              style={[pm.connectBtn, profile.is_favorite && pm.connectBtnActive]}
+            >
+              <Ionicons
+                name={profile.is_favorite ? 'person-remove-outline' : 'person-add-outline'}
+                size={16}
+                color={profile.is_favorite ? C.inkSoft : C.ink}
+              />
+              <Text style={[pm.connectBtnText, profile.is_favorite && { color: C.inkSoft }]}>
+                {toggling ? '…' : profile.is_favorite ? 'Conectado' : 'Conectar'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        ) : null}
+      </View>
+    </Modal>
+  )
+}
+
+const pm = StyleSheet.create({
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: 20, borderBottomWidth: 1, borderBottomColor: '#E7E1D2',
+  },
+  title: { fontFamily: F.headingBold, fontSize: 20, color: '#1A1813', letterSpacing: -0.3 },
+  scroll: { padding: 20, gap: 16, paddingBottom: 48 },
+  heroSection: { alignItems: 'center', gap: 6 },
+  avatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 4 },
+  avatarInitials: { fontSize: 28, fontFamily: F.headingBold, color: '#fff' },
+  nome: { fontFamily: F.headingBold, fontSize: 22, color: '#1A1813', letterSpacing: -0.4 },
+  nickname: { fontSize: 13, fontFamily: F.bodySemi, color: '#8A8472' },
+  bio: { fontSize: 13, fontFamily: F.body, color: '#8A8472', textAlign: 'center', marginTop: 2 },
+  gamesPlayed: { fontSize: 12, fontFamily: F.bodySemi, color: '#8A8472', marginTop: 2 },
+  card: {
+    backgroundColor: '#FFF', borderRadius: 16, padding: 14,
+    borderWidth: 1, borderColor: '#E7E1D2',
+  },
+  cardTitle: { fontFamily: F.bodyBold, fontSize: 12, color: '#8A8472', textTransform: 'uppercase', letterSpacing: 1 },
+  scoreText: { fontFamily: F.headingBold, fontSize: 18, color: '#1A1813', marginLeft: 4 },
+  badgesWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  badge: {
+    backgroundColor: '#F3EFE6', borderRadius: 999,
+    paddingHorizontal: 12, paddingVertical: 5,
+  },
+  badgeText: { fontSize: 12, fontFamily: F.bodySemi, color: '#1A1813' },
+  spDetail: { fontSize: 12, fontFamily: F.bodySemi, color: '#8A8472' },
+  connectBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#CBF135', borderRadius: 999,
+    paddingVertical: 14, marginTop: 4,
+    shadowColor: '#6B8800', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  connectBtnActive: { backgroundColor: '#F3EFE6', shadowOpacity: 0 },
+  connectBtnText: { fontFamily: F.bodyBold, fontSize: 15, color: '#1A1813' },
+})
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -115,6 +308,7 @@ export default function JogoDetailScreen() {
   const [jogo, setJogo] = useState<GameDetail | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [loadingJogo, setLoadingJogo] = useState(true)
+  const [profileUserId, setProfileUserId] = useState<string | null>(null)
   const [msgText, setMsgText] = useState('')
   const [sending, setSending] = useState(false)
   const [cancelling, setCancelling] = useState(false)
@@ -389,7 +583,12 @@ export default function JogoDetailScreen() {
           </View>
           <View style={{ gap: 10 }}>
             {jogo.participacoes.map((p, i) => (
-              <View key={p.id} style={s.playerRow}>
+              <TouchableOpacity
+                key={p.id}
+                style={s.playerRow}
+                activeOpacity={p.user_id === user?.id ? 1 : 0.7}
+                onPress={() => { if (p.user_id !== user?.id) setProfileUserId(p.user_id) }}
+              >
                 <PlayerAvatar id={p.user_id} nome={p.user?.nome ?? '?'} size={38} />
                 <View style={{ flex: 1 }}>
                   <Text style={s.playerName}>{p.user?.nome ?? 'Jogador'}</Text>
@@ -401,8 +600,10 @@ export default function JogoDetailScreen() {
                   <View style={s.youBadge}>
                     <Text style={s.youBadgeText}>você</Text>
                   </View>
-                ) : null}
-              </View>
+                ) : (
+                  <Ionicons name="chevron-forward" size={14} color={C.line} />
+                )}
+              </TouchableOpacity>
             ))}
             {Array.from({ length: Math.max(0, openSlots) }).map((_, i) => (
               <View key={`open-${i}`} style={s.playerRow}>
@@ -529,6 +730,7 @@ export default function JogoDetailScreen() {
           </TouchableOpacity>
         </View>
       ) : null}
+      <UserProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />
     </KeyboardAvoidingView>
   )
 }
