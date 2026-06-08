@@ -41,10 +41,10 @@ interface Game {
 }
 
 const FILTERS = [
-  { key: 'all',         label: 'Todos' },
-  { key: 'padel',       label: 'Padel' },
-  { key: 'beach_tennis',label: 'Beach' },
-  { key: 'tennis',      label: 'Tênis' },
+  { key: 'all',          label: 'Todos',  emoji: '🏆', color: null },
+  { key: 'padel',        label: 'Padel',  emoji: '🎾', color: '#2E6F9E' },
+  { key: 'beach_tennis', label: 'Beach',  emoji: '🏖️', color: '#2E8B57' },
+  { key: 'tennis',       label: 'Tênis',  emoji: '🎾', color: '#D4880A' },
 ] as const
 
 const AVATAR_COLORS = ['#2E6F9E','#D4880A','#B03A2E','#5B7A4C','#8A5A9E','#C2607F','#3A7A6E','#A0622A']
@@ -191,6 +191,7 @@ export default function DescobrirScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [sportFilter, setSportFilter] = useState<string>('all')
+  const [dateFilter, setDateFilter] = useState<'all' | 'today'>('all')
   const [joiningId, setJoiningId] = useState<string | null>(null)
   const [cidadeId, setCidadeId] = useState<string | null>(null)
   const [cidadeNome, setCidadeNome] = useState<string>('')
@@ -231,9 +232,10 @@ export default function DescobrirScreen() {
     if (found) setCidadeNome(`${found.nome}, ${found.estado}`)
   }, [cidadeId, cidades])
 
-  const games = sportFilter === 'all'
-    ? allGames
-    : allGames.filter(g => g.sport === sportFilter)
+  const todayStr = new Date().toDateString()
+  const games = allGames
+    .filter(g => sportFilter === 'all' || g.sport === sportFilter)
+    .filter(g => dateFilter === 'all' || new Date(g.scheduled_at).toDateString() === todayStr)
 
   const counts: Record<string, number> = {
     all: allGames.length,
@@ -290,25 +292,39 @@ export default function DescobrirScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Stats bar — só aparece quando há jogos */}
+      {/* Stats bar interativa — só aparece quando há jogos */}
       {!loading && allGames.length > 0 ? (
         <View style={s.statsBar}>
-          <View style={s.statItem}>
+          <TouchableOpacity
+            style={s.statItem}
+            activeOpacity={0.7}
+            onPress={() => { setSportFilter('all'); setDateFilter('all') }}
+          >
             <Text style={s.statNum}>{allGames.length}</Text>
             <Text style={s.statLabel}>jogo{allGames.length > 1 ? 's' : ''} aberto{allGames.length > 1 ? 's' : ''}</Text>
-          </View>
+          </TouchableOpacity>
           <View style={s.statDivider} />
-          <View style={s.statItem}>
+          <TouchableOpacity
+            style={s.statItem}
+            activeOpacity={0.7}
+            onPress={() => { setSportFilter('all'); setDateFilter('all') }}
+          >
             <Text style={s.statNum}>{totalOpenSpots}</Text>
-            <Text style={s.statLabel}>vaga{totalOpenSpots !== 1 ? 's' : ''} disponível{totalOpenSpots !== 1 ? 'is' : ''}</Text>
-          </View>
+            <Text style={s.statLabel}>vaga{totalOpenSpots !== 1 ? 's' : ''} disponíveis</Text>
+          </TouchableOpacity>
           {todayGames.length > 0 ? (
             <>
               <View style={s.statDivider} />
-              <View style={s.statItem}>
-                <Text style={[s.statNum, { color: C.coral }]}>{todayGames.length}</Text>
-                <Text style={s.statLabel}>hoje</Text>
-              </View>
+              <TouchableOpacity
+                style={[s.statItem, dateFilter === 'today' && s.statItemActive]}
+                activeOpacity={0.7}
+                onPress={() => setDateFilter(prev => prev === 'today' ? 'all' : 'today')}
+              >
+                <Text style={[s.statNum, { color: dateFilter === 'today' ? C.coral : C.coral }]}>{todayGames.length}</Text>
+                <Text style={[s.statLabel, dateFilter === 'today' && { color: C.coral, fontFamily: F.bodyBold }]}>
+                  {dateFilter === 'today' ? 'hoje ✓' : 'hoje'}
+                </Text>
+              </TouchableOpacity>
             </>
           ) : null}
         </View>
@@ -319,13 +335,27 @@ export default function DescobrirScreen() {
         {FILTERS.map(f => {
           const active = sportFilter === f.key
           const count = counts[f.key] ?? 0
+          const activeBg = f.color ?? C.ink
+          const activeText = '#fff'
           return (
-            <TouchableOpacity key={f.key} onPress={() => setSportFilter(f.key)} activeOpacity={0.8}
-              style={[s.filterPill, active && s.filterPillActive]}>
-              <Text style={[s.filterPillText, active && s.filterPillTextActive]}>
+            <TouchableOpacity
+              key={f.key}
+              onPress={() => setSportFilter(f.key)}
+              activeOpacity={0.8}
+              style={[
+                s.filterPill,
+                active && { backgroundColor: activeBg, borderColor: activeBg },
+              ]}
+            >
+              <Text style={s.filterEmoji}>{f.emoji}</Text>
+              <Text style={[s.filterPillText, active && { color: activeText }]}>
                 {f.label}
-                {count > 0 ? <Text style={[s.filterCount, active && s.filterCountActive]}> ({count})</Text> : null}
               </Text>
+              {count > 0 ? (
+                <View style={[s.filterBadge, active && { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+                  <Text style={[s.filterBadgeText, active && { color: '#fff' }]}>{count}</Text>
+                </View>
+              ) : null}
             </TouchableOpacity>
           )
         })}
@@ -469,6 +499,7 @@ const s = StyleSheet.create({
   statNum: { fontFamily: F.headingBold, fontSize: 18, color: C.ink, letterSpacing: -0.3 },
   statLabel: { fontSize: 10, fontFamily: F.bodySemi, color: C.inkSoft, marginTop: 1 },
   statDivider: { width: 1, height: 28, backgroundColor: C.line },
+  statItemActive: { backgroundColor: `${C.coral}12`, borderRadius: 10, paddingHorizontal: 8 },
   createBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: C.lime, borderRadius: 999,
@@ -482,18 +513,19 @@ const s = StyleSheet.create({
 
   // Filters
   filterScroll: { flexGrow: 0 },
-  filterRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 14 },
+  filterRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 14, alignItems: 'center' },
   filterPill: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
     backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
   },
-  filterPillActive: {
-    backgroundColor: C.ink, borderColor: C.ink,
-  },
+  filterEmoji: { fontSize: 13 },
   filterPillText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
-  filterPillTextActive: { color: C.cream },
-  filterCount: { fontSize: 12, fontFamily: F.bodySemi, color: C.inkSoft },
-  filterCountActive: { color: `${C.cream}CC` },
+  filterBadge: {
+    backgroundColor: C.line, borderRadius: 999,
+    paddingHorizontal: 6, paddingVertical: 1, minWidth: 18, alignItems: 'center',
+  },
+  filterBadgeText: { fontSize: 10, fontFamily: F.bodyBold, color: C.inkSoft },
 
   // Scroll
   scroll: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
