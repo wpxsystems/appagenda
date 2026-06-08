@@ -35,6 +35,7 @@ interface GameDetail {
   vacancies_total: number
   status: string
   court_reserved: boolean
+  court_price_per_person: number | null
   notes: string | null
   target_category: string | null
   target_skill_level: string | null
@@ -342,9 +343,16 @@ export default function JogoDetailScreen() {
               ) : null}
             </View>
             {jogo.court_reserved ? (
-              <View style={s.resBadge}>
-                <Ionicons name="checkmark" size={11} color="#2E6F9E" />
-                <Text style={s.resBadgeText}>Reservada</Text>
+              <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                <View style={s.resBadge}>
+                  <Ionicons name="checkmark" size={11} color="#2E6F9E" />
+                  <Text style={s.resBadgeText}>Reservada</Text>
+                </View>
+                {jogo.court_price_per_person ? (
+                  <Text style={s.resPriceText}>
+                    R$ {jogo.court_price_per_person.toFixed(2).replace('.', ',')}/pessoa
+                  </Text>
+                ) : null}
               </View>
             ) : null}
           </View>
@@ -619,6 +627,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 5,
   },
   resBadgeText: { fontSize: 12, fontFamily: F.bodyBold, color: '#2E6F9E' },
+  resPriceText: { fontSize: 11, fontFamily: F.bodySemi, color: '#2E6F9E' },
 
   // Info chips divider
   chipDivider: {
