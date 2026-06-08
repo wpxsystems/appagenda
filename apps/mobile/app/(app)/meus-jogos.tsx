@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, FlatList } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, FlatList, RefreshControl } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
@@ -15,6 +15,7 @@ interface MyGame {
   scheduled_at: string
   duration_minutes: number
   vacancies_total: number
+  participant_count: number
   status: string
   court_reserved: boolean
   venue_nome: string | null
@@ -249,8 +250,16 @@ function GameCard({ g, onPress, onConfirm, onRate, confirming }: {
   const canConfirm = g.is_creator && !isCancelled && !isCompleted && new Date(g.scheduled_at) < new Date()
   const canRate = isCompleted && !g.has_rated
 
-  const statusText = isCancelled ? 'Cancelado' : isCompleted ? 'Confirmado' : isPast ? 'Encerrado' : 'Em aberto'
-  const statusColor = isCompleted ? C.success : C.inkSoft
+  const statusText = isCancelled
+    ? 'Cancelado'
+    : isCompleted
+    ? 'Confirmado'
+    : isPast && canConfirm
+    ? 'Confirmar?'
+    : isPast
+    ? 'Encerrado'
+    : 'Em aberto'
+  const statusColor = isCompleted ? C.success : isPast && canConfirm ? C.coral : C.inkSoft
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={[s.card, { opacity: isPast && !isCompleted ? 0.72 : 1 }]}>
@@ -289,7 +298,9 @@ function GameCard({ g, onPress, onConfirm, onRate, confirming }: {
         <View style={s.cardBottomRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Ionicons name="people-outline" size={12} color={C.inkSoft} />
-            <Text style={s.cardMeta}>{g.vacancies_total} vagas</Text>
+            <Text style={s.cardMeta}>
+              {g.participant_count ?? 1}/{g.vacancies_total} jogadores
+            </Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Ionicons name="time-outline" size={12} color={C.inkSoft} />
@@ -346,16 +357,20 @@ export default function MeusJogosScreen() {
   const { showConfirm, showToast } = useToast()
   const [myGames, setMyGames] = useState<MyGame[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [tab, setTab] = useState<'proximos' | 'passados'>('proximos')
   const [confirming, setConfirming] = useState<string | null>(null)
   const [ratingGameId, setRatingGameId] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true)
     try {
       const games = await apiGet<MyGame[]>('/me/jogos')
       setMyGames(games)
-    } catch { /* ignore */ } finally { setLoading(false) }
+    } catch { /* ignore */ } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -401,7 +416,16 @@ export default function MeusJogosScreen() {
       {loading ? (
         <ActivityIndicator color={C.ink} style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView contentContainerStyle={s.scroll}>
+        <ScrollView
+          contentContainerStyle={s.scroll}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); load(true) }}
+              tintColor={C.ink}
+            />
+          }
+        >
           {list.length === 0 ? (
             <View style={s.empty}>
               <Text style={s.emptyIcon}>{tab === 'proximos' ? '🎾' : '📋'}</Text>
@@ -410,12 +434,13 @@ export default function MeusJogosScreen() {
               </Text>
               <Text style={s.emptySub}>
                 {tab === 'proximos'
-                  ? 'Crie um jogo ou entre em um na aba Descobrir'
+                  ? 'Crie um jogo ou entre em um disponível'
                   : 'Seus jogos finalizados aparecerão aqui'}
               </Text>
               {tab === 'proximos' ? (
-                <View style={{ marginTop: 16 }}>
+                <View style={{ marginTop: 16, gap: 10 }}>
                   <Btn onPress={() => router.push('/criar' as never)}>Criar jogo</Btn>
+                  <Btn variant="ghost" onPress={() => router.push('/(app)/' as never)}>Descobrir jogos</Btn>
                 </View>
               ) : null}
             </View>

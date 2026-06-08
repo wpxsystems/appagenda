@@ -155,38 +155,45 @@ exports.getMyGames = asyncHandler(async (req, res) => {
     order: [[{ model: Jogo, as: 'jogo' }, 'scheduled_at', 'ASC']],
   });
 
-  const completedJogoIds = participacoes
-    .filter(p => p.jogo?.status === 'completed')
-    .map(p => p.jogo.id);
+  const validJogos = participacoes.filter(p => p.jogo != null);
+  const jogoIds = validJogos.map(p => p.jogo_id);
 
-  const ratedJogoIds = new Set(
-    completedJogoIds.length > 0
-      ? (await GameRating.findAll({
-          where: { rater_id: req.auth.userId, jogo_id: completedJogoIds },
-          attributes: ['jogo_id'],
-        })).map(r => r.jogo_id)
-      : []
-  );
+  const [countRows, ratedRows] = await Promise.all([
+    jogoIds.length > 0
+      ? Participacao.findAll({
+          where: { jogo_id: jogoIds },
+          attributes: ['jogo_id', [sequelize.fn('COUNT', sequelize.col('id')), 'cnt']],
+          group: ['jogo_id'],
+          raw: true,
+        })
+      : [],
+    (() => {
+      const completedIds = validJogos.filter(p => p.jogo.status === 'completed').map(p => p.jogo_id);
+      return completedIds.length > 0
+        ? GameRating.findAll({ where: { rater_id: req.auth.userId, jogo_id: completedIds }, attributes: ['jogo_id'] })
+        : Promise.resolve([]);
+    })(),
+  ]);
 
-  const jogos = participacoes
-    .filter((p) => p.jogo != null)
-    .map((p) => {
-      const j = p.jogo;
-      return {
-        id: j.id,
-        sport: j.sport,
-        scheduled_at: j.scheduled_at,
-        duration_minutes: j.duration_minutes,
-        vacancies_total: j.vacancies_total,
-        status: j.status,
-        court_reserved: j.court_reserved,
-        venue_nome: j.venue?.nome ?? null,
-        venue_endereco: j.venue?.endereco ?? null,
-        creator_id: j.creator_id,
-        is_creator: j.creator_id === req.auth.userId,
-        has_rated: ratedJogoIds.has(j.id),
-      };
-    });
+  const countMap = Object.fromEntries(countRows.map(r => [r.jogo_id, parseInt(r.cnt, 10)]));
+  const ratedJogoIds = new Set(ratedRows.map(r => r.jogo_id));
 
-  res.json(jogos);
+  res.json(validJogos.map(p => {
+    const j = p.jogo;
+    return {
+      id: j.id,
+      sport: j.sport,
+      scheduled_at: j.scheduled_at,
+      duration_minutes: j.duration_minutes,
+      vacancies_total: j.vacancies_total,
+      participant_count: countMap[j.id] ?? 1,
+      status: j.status,
+      court_reserved: j.court_reserved,
+      venue_nome: j.venue?.nome ?? null,
+      venue_endereco: j.venue?.endereco ?? null,
+      creator_id: j.creator_id,
+      is_creator: j.creator_id === req.auth.userId,
+      has_rated: ratedJogoIds.has(j.id),
+    };
+  }));
 });
