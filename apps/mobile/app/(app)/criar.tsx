@@ -348,7 +348,7 @@ export default function CriarScreen() {
 
           <TouchableOpacity onPress={submit} disabled={submitting} activeOpacity={0.85}
             style={[s.publishBtn, { backgroundColor: sportColor === C.ink ? C.lime : sportColor }]}>
-            <Text style={s.publishBtnText}>{submitting ? 'Criando…' : 'Publicar jogo'}</Text>
+            <Text style={[s.publishBtnText, { color: sport ? '#fff' : C.ink }]}>{submitting ? 'Criando…' : 'Publicar jogo'}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
