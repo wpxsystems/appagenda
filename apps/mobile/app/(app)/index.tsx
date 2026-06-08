@@ -291,43 +291,6 @@ export default function DescobrirScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Stats bar interativa — só aparece quando há jogos */}
-      {!loading && allGames.length > 0 ? (
-        <View style={s.statsBar}>
-          <TouchableOpacity
-            style={s.statItem}
-            activeOpacity={0.7}
-            onPress={() => { setSportFilter('all'); setDateFilter('all') }}
-          >
-            <Text style={s.statNum}>{allGames.length}</Text>
-            <Text style={s.statLabel}>jogo{allGames.length > 1 ? 's' : ''} aberto{allGames.length > 1 ? 's' : ''}</Text>
-          </TouchableOpacity>
-          <View style={s.statDivider} />
-          <TouchableOpacity
-            style={s.statItem}
-            activeOpacity={0.7}
-            onPress={() => { setSportFilter('all'); setDateFilter('all') }}
-          >
-            <Text style={s.statNum}>{totalOpenSpots}</Text>
-            <Text style={s.statLabel}>vaga{totalOpenSpots !== 1 ? 's' : ''} disponíveis</Text>
-          </TouchableOpacity>
-          {todayGames.length > 0 ? (
-            <>
-              <View style={s.statDivider} />
-              <TouchableOpacity
-                style={[s.statItem, dateFilter === 'today' && s.statItemActive]}
-                activeOpacity={0.7}
-                onPress={() => setDateFilter(prev => prev === 'today' ? 'all' : 'today')}
-              >
-                <Text style={[s.statNum, { color: dateFilter === 'today' ? C.coral : C.coral }]}>{todayGames.length}</Text>
-                <Text style={[s.statLabel, dateFilter === 'today' && { color: C.coral, fontFamily: F.bodyBold }]}>
-                  {dateFilter === 'today' ? 'hoje ✓' : 'hoje'}
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : null}
-        </View>
-      ) : null}
 
       {/* Filter bar — 4 campos iguais */}
       <View style={s.filterBar}>
