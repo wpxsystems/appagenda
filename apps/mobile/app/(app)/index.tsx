@@ -455,7 +455,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
   },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  locationText: { fontSize: 14, color: C.ink, fontFamily: F.bodyBold },
+  locationText: { fontSize: 17, color: C.ink, fontFamily: F.headingBold, letterSpacing: -0.3 },
 
   // Stats bar
   statsBar: {
