@@ -314,8 +314,8 @@ export default function DescobrirScreen() {
               <Text style={[s.filterSegmentText, active && s.filterSegmentTextActive]}>
                 {f.label}
               </Text>
-              <Text style={[s.filterSegmentCount, active && s.filterSegmentCountActive, { opacity: count > 0 ? 1 : 0 }]}>
-                {count || '0'}
+              <Text style={[s.filterSegmentCount, active && s.filterSegmentCountActive, count === 0 && s.filterSegmentCountZero]}>
+                {count}
               </Text>
             </TouchableOpacity>
           )
@@ -493,6 +493,7 @@ const s = StyleSheet.create({
   filterSegmentCount: {
     fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft,
   },
+  filterSegmentCountZero: { opacity: 0.3 },
   filterSegmentCountActive: { color: `${C.cream}80` },
   // kept for any remaining refs
   filterScroll: { flexGrow: 0 },
