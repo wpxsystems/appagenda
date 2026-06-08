@@ -351,11 +351,9 @@ export default function DescobrirScreen() {
               <Text style={[s.filterSegmentText, active && s.filterSegmentTextActive]}>
                 {f.label}
               </Text>
-              {count > 0 ? (
-                <Text style={[s.filterSegmentCount, active && s.filterSegmentCountActive]}>
-                  {count}
-                </Text>
-              ) : null}
+              <Text style={[s.filterSegmentCount, active && s.filterSegmentCountActive, { opacity: count > 0 ? 1 : 0 }]}>
+                {count || '0'}
+              </Text>
             </TouchableOpacity>
           )
         })}
