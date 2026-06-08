@@ -278,15 +278,13 @@ export default function DescobrirScreen() {
   return (
     <Screen>
       {/* Header */}
+      <Text style={s.greeting}>{greeting()}{firstName ? `, ${firstName}` : ''} 👋</Text>
       <View style={s.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={s.greeting}>{greeting()}{firstName ? `, ${firstName}` : ''} 👋</Text>
-          <TouchableOpacity onPress={() => setCidadeModal(true)} activeOpacity={0.7} style={s.locationRow}>
-            <Ionicons name="location-outline" size={13} color={C.inkSoft} />
-            <Text style={s.locationText} numberOfLines={1}>{cidadeNome || 'Selecionar cidade'}</Text>
-            <Ionicons name="chevron-down" size={11} color={C.inkSoft} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={() => setCidadeModal(true)} activeOpacity={0.7} style={s.locationRow}>
+          <Ionicons name="location-outline" size={13} color={C.inkSoft} />
+          <Text style={s.locationText} numberOfLines={1}>{cidadeNome || 'Selecionar cidade'}</Text>
+          <Ionicons name="chevron-down" size={11} color={C.inkSoft} />
+        </TouchableOpacity>
         <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/(app)/criar' as never)} style={s.createBtn}>
           <Ionicons name="add" size={15} color={C.ink} />
           <Text style={s.createBtnText}>Criar Jogo</Text>
@@ -449,13 +447,16 @@ export default function DescobrirScreen() {
 
 const s = StyleSheet.create({
   // Header
-  header: {
-    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 10,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
+  greeting: {
+    fontFamily: F.headingBold, fontSize: 20, color: C.ink,
+    letterSpacing: -0.3, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6,
   },
-  greeting: { fontFamily: F.headingBold, fontSize: 18, color: C.ink, letterSpacing: -0.3, marginBottom: 3 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 4 },
-  locationText: { fontSize: 13, color: C.inkSoft, fontFamily: F.bodySemi },
+  header: {
+    paddingHorizontal: 20, paddingBottom: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+  },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  locationText: { fontSize: 14, color: C.ink, fontFamily: F.bodyBold },
 
   // Stats bar
   statsBar: {
