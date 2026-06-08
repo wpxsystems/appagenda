@@ -64,7 +64,7 @@ export default function CriarScreen() {
   const router = useRouter()
 
   const [sport, setSport] = useState<Sport | ''>('')
-  const [category, setCategory] = useState('')
+  const [categories, setCategories] = useState<string[]>([])
   const [skillLevel, setSkillLevel] = useState('')
   const [selDay, setSelDay] = useState<Date | null>(null)
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d })
@@ -97,6 +97,9 @@ export default function CriarScreen() {
 
   async function submit() {
     if (!sport) { showToast({ type: 'error', title: 'Selecione um esporte' }); return }
+    if ((sport === 'padel' || sport === 'beach_tennis') && categories.length === 0) {
+      showToast({ type: 'error', title: 'Selecione ao menos uma categoria' }); return
+    }
     if (!selDay) { showToast({ type: 'error', title: 'Selecione uma data' }); return }
     if (duration <= 0) { showToast({ type: 'error', title: 'Horário de fim deve ser após o início' }); return }
     if (!cidadeId) { showToast({ type: 'error', title: 'Cidade não definida no perfil' }); return }
@@ -125,10 +128,7 @@ export default function CriarScreen() {
         court_reserved: courtReserved,
       }
       if (notes.trim()) payload.notes = notes.trim()
-      // Padel categories só funcionam após deploy da API — beach tennis OK agora
-      if (category && (sport === 'beach_tennis' || ['C','B','A','Open'].includes(category))) {
-        payload.target_category = category
-      }
+      if (categories.length > 0) payload.target_categories = categories
       if (skillLevel) payload.target_skill_level = skillLevel
       if (courtReserved && courtPrice) payload.court_price_per_person = parseCurrency(courtPrice)
 
@@ -145,7 +145,13 @@ export default function CriarScreen() {
     }
   }
 
-  function selectSport(sp: Sport) { setSport(sp); setCategory(''); setSkillLevel('') }
+  function selectSport(sp: Sport) { setSport(sp); setCategories([]); setSkillLevel('') }
+
+  function toggleCategory(cat: string) {
+    setCategories(prev =>
+      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+    )
+  }
 
   const sportColor = sport ? sportColors[sport] : C.ink
   const durationLabel = formatDuration(startTime, endTime)
@@ -182,13 +188,33 @@ export default function CriarScreen() {
           {/* Categoria */}
           {(sport === 'padel' || sport === 'beach_tennis') ? (
             <View>
-              <SectionLabel>Categoria <Text style={{ color: C.inkSoft, fontSize: 11 }}>(opcional)</Text></SectionLabel>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <SectionLabel style={{ marginBottom: 0 }}>Categoria</SectionLabel>
+                {categories.length > 0 ? (
+                  <Text style={{ fontSize: 11, fontFamily: F.bodySemi, color: C.inkSoft }}>
+                    {categories.length} selecionada{categories.length > 1 ? 's' : ''}
+                  </Text>
+                ) : (
+                  <Text style={{ fontSize: 11, fontFamily: F.bodySemi, color: C.coral }}>obrigatório</Text>
+                )}
+              </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {(sport === 'padel' ? PADEL_CATS : BEACH_CATS).map(cat => (
-                  <Pill key={cat} label={cat === 'Open' ? 'Open' : `Cat. ${cat}`}
-                    active={category === cat} onPress={() => setCategory(prev => prev === cat ? '' : cat)} />
+                  <Pill
+                    key={cat}
+                    label={cat === 'Open' ? 'Open' : `Cat. ${cat}`}
+                    active={categories.includes(cat)}
+                    onPress={() => toggleCategory(cat)}
+                  />
                 ))}
               </View>
+              {categories.length === 0 ? (
+                <Text style={s.catHint}>Selecione uma ou mais categorias do jogo</Text>
+              ) : (
+                <Text style={s.catHintOk}>
+                  {categories.map(c => c === 'Open' ? 'Open' : `Cat. ${c}`).join(' · ')}
+                </Text>
+              )}
             </View>
           ) : null}
 
@@ -474,6 +500,8 @@ const s = StyleSheet.create({
 
   vacancyCard: { flex: 1, padding: 8, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', gap: 2 },
   helper: { marginTop: 6, fontSize: 11, color: C.inkSoft, fontFamily: F.body },
+  catHint: { marginTop: 6, fontSize: 12, color: C.inkSoft, fontFamily: F.bodySemi },
+  catHintOk: { marginTop: 6, fontSize: 12, color: C.success, fontFamily: F.bodyBold },
 
   toggleRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,

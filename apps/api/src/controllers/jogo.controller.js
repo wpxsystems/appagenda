@@ -17,6 +17,7 @@ const createJogoSchema = z.object({
   court_reserved:           z.boolean().default(false),
   court_price_per_person:   z.number().positive().optional(),
   notes:              z.string().max(500).optional(),
+  target_categories:  z.array(z.enum(['C', 'B', 'A', '8a', '7a', '6a', '5a', '4a', '3a', '2a', 'Open'])).max(4).optional(),
   target_category:    z.enum(['C', 'B', 'A', '8a', '7a', '6a', '5a', '4a', '3a', '2a', 'Open']).optional(),
   target_skill_level: z.enum(['beginner', 'intermediate', 'advanced', 'competitive']).optional(),
   target_side:        z.enum(['left', 'right', 'both']).optional(),
@@ -52,6 +53,7 @@ exports.list = asyncHandler(async (req, res) => {
     status: j.status,
     court_reserved: j.court_reserved,
     court_price_per_person: j.court_price_per_person ? Number(j.court_price_per_person) : null,
+    target_categories: j.target_categories ?? [],
     target_category: j.target_category,
     target_skill_level: j.target_skill_level,
     target_side: j.target_side,
@@ -92,6 +94,10 @@ exports.getById = asyncHandler(async (req, res) => {
 
 exports.create = asyncHandler(async (req, res) => {
   const data = createJogoSchema.parse(req.body);
+  // Sincroniza target_category com o primeiro elemento de target_categories
+  if (data.target_categories?.length) {
+    data.target_category = data.target_categories[0];
+  }
   const jogo = await Jogo.create({ ...data, creator_id: req.auth.userId });
   await Participacao.create({ jogo_id: jogo.id, user_id: req.auth.userId });
   res.status(201).json(jogo);

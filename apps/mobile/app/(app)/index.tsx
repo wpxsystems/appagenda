@@ -28,6 +28,7 @@ interface Game {
   status: string
   court_reserved: boolean
   court_price_per_person: number | null
+  target_categories: string[] | null
   target_category: string | null
   target_skill_level: string | null
   notes: string | null
@@ -99,7 +100,9 @@ function GameCard({ g, onJoin, onView, isOwn }: {
           </View>
           <View style={s.categoryChip}>
             <Text style={s.categoryChipText}>
-              {g.target_category ? `Cat. ${g.target_category}` : 'Livre'}
+              {(g.target_categories?.length ?? 0) > 0
+                ? g.target_categories!.map((c: string) => c === 'Open' ? 'Open' : `Cat. ${c}`).join(' · ')
+                : g.target_category ? `Cat. ${g.target_category}` : 'Livre'}
             </Text>
           </View>
         </View>
