@@ -494,8 +494,8 @@ const s = StyleSheet.create({
   filterSegmentCount: {
     fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft,
   },
-  filterSegmentCountZero: { opacity: 0.3 },
-  filterSegmentCountActive: { color: `${C.cream}80` },
+  filterSegmentCountZero: { opacity: 0.45 },
+  filterSegmentCountActive: { color: '#fff' },
   // kept for any remaining refs
   filterScroll: { flexGrow: 0 },
   filterRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 14 },
