@@ -154,6 +154,7 @@ export default function CriarScreen() {
   }
 
   const sportColor = sport ? sportColors[sport] : C.ink
+  const accentColor = sport ? sportColor : C.line  // só colore quando esporte selecionado
   const durationLabel = formatDuration(startTime, endTime)
 
   return (
@@ -205,13 +206,14 @@ export default function CriarScreen() {
                     label={cat === 'Open' ? 'Open' : `Cat. ${cat}`}
                     active={categories.includes(cat)}
                     onPress={() => toggleCategory(cat)}
+                    color={sportColor}
                   />
                 ))}
               </View>
               {categories.length === 0 ? (
                 <Text style={s.catHint}>Selecione uma ou mais categorias do jogo</Text>
               ) : (
-                <Text style={s.catHintOk}>
+                <Text style={[s.catHintOk, { color: sportColor }]}>
                   {categories.map(c => c === 'Open' ? 'Open' : `Cat. ${c}`).join(' · ')}
                 </Text>
               )}
@@ -224,6 +226,7 @@ export default function CriarScreen() {
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {TENNIS_LEVELS.map(([val, lbl]) => (
                   <Pill key={val} label={lbl} active={skillLevel === val}
+                    color={sportColor}
                     onPress={() => setSkillLevel(prev => prev === val ? '' : val)} />
                 ))}
               </View>
@@ -233,8 +236,9 @@ export default function CriarScreen() {
           {/* Data */}
           <View>
             <SectionLabel>Data</SectionLabel>
-            <TouchableOpacity onPress={() => setCalOpen(true)} activeOpacity={0.8} style={s.dateBtn}>
-              <Ionicons name="calendar-outline" size={18} color={selDay ? C.ink : C.inkSoft} />
+            <TouchableOpacity onPress={() => setCalOpen(true)} activeOpacity={0.8}
+              style={[s.dateBtn, selDay && { borderColor: accentColor }]}>
+              <Ionicons name="calendar-outline" size={18} color={selDay ? accentColor : C.inkSoft} />
               <Text style={[s.dateBtnText, selDay && { color: C.ink, fontFamily: F.bodyBold }]}>
                 {selDay
                   ? selDay.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
@@ -248,14 +252,14 @@ export default function CriarScreen() {
           <View>
             <SectionLabel>Horário</SectionLabel>
             <View style={s.timeRow}>
-              <TouchableOpacity style={s.timeChip} activeOpacity={0.7} onPress={() => setTimePicker('start')}>
+              <TouchableOpacity style={[s.timeChip, { borderColor: accentColor }]} activeOpacity={0.7} onPress={() => setTimePicker('start')}>
                 <Text style={s.timeChipLabel}>Início</Text>
-                <Text style={s.timeChipValue}>{startTime}</Text>
+                <Text style={[s.timeChipValue, { color: accentColor }]}>{startTime}</Text>
               </TouchableOpacity>
-              <Ionicons name="arrow-forward" size={18} color={C.inkSoft} />
-              <TouchableOpacity style={s.timeChip} activeOpacity={0.7} onPress={() => setTimePicker('end')}>
+              <Ionicons name="arrow-forward" size={18} color={accentColor} />
+              <TouchableOpacity style={[s.timeChip, { borderColor: accentColor }]} activeOpacity={0.7} onPress={() => setTimePicker('end')}>
                 <Text style={s.timeChipLabel}>Fim</Text>
-                <Text style={s.timeChipValue}>{endTime}</Text>
+                <Text style={[s.timeChipValue, { color: accentColor }]}>{endTime}</Text>
               </TouchableOpacity>
             </View>
             {durationLabel ? (
@@ -276,9 +280,9 @@ export default function CriarScreen() {
                 const on = vacancies === total
                 return (
                   <TouchableOpacity key={open} onPress={() => setVacancies(total)} activeOpacity={0.85}
-                    style={[s.vacancyCard, { backgroundColor: on ? C.ink : C.card, borderColor: on ? C.ink : C.line }]}>
-                    <Text style={{ fontFamily: F.headingBold, fontSize: 18, color: on ? C.lime : C.ink }}>{open}</Text>
-                    <Text style={{ fontSize: 9, fontFamily: F.bodySemi, color: on ? 'rgba(243,239,230,0.4)' : C.inkSoft }}>
+                    style={[s.vacancyCard, { backgroundColor: on ? sportColor : C.card, borderColor: on ? sportColor : C.line }]}>
+                    <Text style={{ fontFamily: F.headingBold, fontSize: 18, color: on ? C.ink : C.ink }}>{open}</Text>
+                    <Text style={{ fontSize: 9, fontFamily: F.bodySemi, color: on ? 'rgba(26,24,19,0.5)' : C.inkSoft }}>
                       vaga{open > 1 ? 's' : ''}
                     </Text>
                   </TouchableOpacity>
@@ -294,6 +298,7 @@ export default function CriarScreen() {
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {GENDER_TYPES.map(([v, l]) => (
                 <Pill key={v} label={l} active={genderType === v}
+                  color={sportColor}
                   onPress={() => setGenderType(v as 'mixed' | 'male' | 'female')} />
               ))}
             </View>
@@ -301,12 +306,12 @@ export default function CriarScreen() {
 
           {/* Quadra reservada */}
           <View style={{ gap: 10 }}>
-            <View style={s.toggleRow}>
+            <View style={[s.toggleRow, courtReserved && { borderColor: `${sportColor}60` }]}>
               <View style={{ flex: 1 }}>
                 <Text style={s.toggleTitle}>Quadra já reservada</Text>
                 <Text style={s.toggleSub}>Você já garantiu o horário na arena</Text>
               </View>
-              <Toggle on={courtReserved} onChange={() => setCourtReserved(v => !v)} />
+              <Toggle on={courtReserved} onChange={() => setCourtReserved(v => !v)} color={sportColor} />
             </View>
 
             {courtReserved ? (

@@ -73,24 +73,26 @@ export function Avatar({ name, size = 36, uri }: { name?: string; size?: number;
 }
 
 // ── Pill (tab pill) ─────────────────────────────────────────────────
-export function Pill({ label, active, onPress, small, count }: {
-  label: string; active: boolean; onPress: () => void; small?: boolean; count?: number
+export function Pill({ label, active, onPress, small, count, color }: {
+  label: string; active: boolean; onPress: () => void; small?: boolean; count?: number; color?: string
 }) {
+  const activeBg = color ?? C.ink
+  const isLight = !!color // cores de esporte usam texto escuro; ink usa cream
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[
       styles.pill,
       { paddingHorizontal: small ? 12 : 16, paddingVertical: small ? 6 : 8 },
-      { backgroundColor: active ? C.ink : C.card, borderColor: active ? C.ink : C.line },
+      { backgroundColor: active ? activeBg : C.card, borderColor: active ? activeBg : C.line },
     ]}>
-      <Text style={[styles.pillText, { color: active ? C.cream : C.inkSoft, fontSize: small ? 12 : 13 }]}>
+      <Text style={[styles.pillText, { color: active ? (isLight ? C.ink : C.cream) : C.inkSoft, fontSize: small ? 12 : 13 }]}>
         {label}
       </Text>
       {count !== undefined && count > 0 ? (
         <View style={{
           marginLeft: 6, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999,
-          backgroundColor: active ? 'rgba(203,241,53,0.27)' : C.line,
+          backgroundColor: active ? 'rgba(0,0,0,0.15)' : C.line,
         }}>
-          <Text style={{ fontSize: 11, fontFamily: F.bodyBold, color: active ? C.lime : C.inkSoft }}>{count}</Text>
+          <Text style={{ fontSize: 11, fontFamily: F.bodyBold, color: active ? (isLight ? C.ink : C.lime) : C.inkSoft }}>{count}</Text>
         </View>
       ) : null}
     </TouchableOpacity>
@@ -98,8 +100,9 @@ export function Pill({ label, active, onPress, small, count }: {
 }
 
 // ── SectionLabel ────────────────────────────────────────────────────
-export function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <Text style={styles.sectionLabel}>{children}</Text>
+import { StyleProp, TextStyle } from 'react-native'
+export function SectionLabel({ children, style }: { children: React.ReactNode; style?: StyleProp<TextStyle> }) {
+  return <Text style={[styles.sectionLabel, style]}>{children}</Text>
 }
 
 // ── SegmentedPicker ─────────────────────────────────────────────────
@@ -146,10 +149,10 @@ export function StepDots({ step, total }: { step: number; total: number }) {
 }
 
 // ── Toggle ──────────────────────────────────────────────────────────
-export function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
+export function Toggle({ on, onChange, color }: { on: boolean; onChange: () => void; color?: string }) {
   return (
     <TouchableOpacity onPress={onChange} activeOpacity={0.85} style={{
-      width: 44, height: 26, borderRadius: 13, backgroundColor: on ? C.lime : '#D1D0CB',
+      width: 44, height: 26, borderRadius: 13, backgroundColor: on ? (color ?? C.lime) : '#D1D0CB',
       justifyContent: 'center', paddingHorizontal: 3,
     }}>
       <View style={{
