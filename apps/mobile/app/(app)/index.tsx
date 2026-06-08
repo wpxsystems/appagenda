@@ -135,49 +135,36 @@ function GameCard({ g, onJoin, onView, isOwn }: {
         ) : null}
       </View>
 
-      {/* linha inferior: botão entrar (esq) + avatares (dir) */}
-      <View style={[s.cardBottom, (!isOwn && !isFull) ? null : { justifyContent: 'flex-end' }]}>
-        {!isOwn && !isFull ? (
-          <TouchableOpacity
-            onPress={e => { e.stopPropagation?.(); onJoin() }}
-            activeOpacity={0.85}
-            style={s.joinBtn}
-          >
-            <Text style={s.joinBtnText}>Entrar</Text>
-          </TouchableOpacity>
-        ) : null}
+      {/* linha inferior: só renderiza se há participantes reais ou botão entrar */}
+      {((g.participants ?? []).length > 0 || (!isOwn && !isFull)) ? (
+        <View style={s.cardBottom}>
+          {!isOwn && !isFull ? (
+            <TouchableOpacity
+              onPress={e => { e.stopPropagation?.(); onJoin() }}
+              activeOpacity={0.85}
+              style={s.joinBtn}
+            >
+              <Text style={s.joinBtnText}>Entrar</Text>
+            </TouchableOpacity>
+          ) : null}
 
-        <View style={s.avatarStack}>
-          {(g.participants ?? []).slice(0, 5).map((p, i) => (
-            p.avatar_url ? (
-              <Image
-                key={p.id}
-                source={{ uri: p.avatar_url }}
-                style={[s.miniAvatar, { marginLeft: i > 0 ? -8 : 0 }]}
-              />
-            ) : (
-              <View key={p.id} style={[s.miniAvatar, { backgroundColor: avatarColor(p.id), marginLeft: i > 0 ? -8 : 0 }]}>
-                <Text style={s.miniAvatarInitials}>{initials(p.nome)}</Text>
-              </View>
-            )
-          ))}
-          {Array.from({
-            length: Math.min(
-              Math.max(g.open_spots, 0),
-              Math.max(5 - Math.min((g.participants ?? []).length, 5), 0),
-            ),
-          }).map((_, i) => (
-            <View
-              key={`empty-${i}`}
-              style={[
-                s.miniAvatar,
-                s.miniAvatarEmpty,
-                { marginLeft: (g.participants ?? []).length > 0 || i > 0 ? -8 : 0 },
-              ]}
-            />
-          ))}
+          <View style={s.avatarStack}>
+            {(g.participants ?? []).slice(0, 5).map((p, i) => (
+              p.avatar_url ? (
+                <Image
+                  key={p.id}
+                  source={{ uri: p.avatar_url }}
+                  style={[s.miniAvatar, { marginLeft: i > 0 ? -8 : 0 }]}
+                />
+              ) : (
+                <View key={p.id} style={[s.miniAvatar, { backgroundColor: avatarColor(p.id), marginLeft: i > 0 ? -8 : 0 }]}>
+                  <Text style={s.miniAvatarInitials}>{initials(p.nome)}</Text>
+                </View>
+              )
+            ))}
+          </View>
         </View>
-      </View>
+      ) : null}
       </View>
     </TouchableOpacity>
   )
@@ -476,7 +463,7 @@ const s = StyleSheet.create({
   reservedText: { fontSize: 11, fontFamily: F.bodyBold, color: '#2E7D6E' },
   priceText: { fontSize: 11, fontFamily: F.bodySemi, color: '#2E7D6E' },
 
-  cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
   avatarStack: { flexDirection: 'row', alignItems: 'center' },
   miniAvatar: {
     width: 30, height: 30, borderRadius: 15,
