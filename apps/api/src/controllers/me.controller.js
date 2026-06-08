@@ -49,18 +49,22 @@ exports.getMe = asyncHandler(async (req, res) => {
 });
 
 exports.updateMe = asyncHandler(async (req, res) => {
-  const { nome, avatar_url, bio, push_token, notifications_enabled } = req.body ?? {};
+  const { nome, nickname, bio, phone, genero, data_nascimento, avatar_url, push_token, notifications_enabled } = req.body ?? {};
   const user = await User.findByPk(req.auth.userId);
   if (!user) throw new AppError('Usuário não encontrado', 404);
 
   if (nome?.trim()?.length >= 2) user.nome = nome.trim();
+  if (nickname !== undefined) user.nickname = nickname?.trim() || null;
+  if (bio !== undefined) user.bio = bio?.trim() || null;
+  if (phone !== undefined) user.phone = phone?.trim() || null;
+  if (genero !== undefined && ['male', 'female', 'other'].includes(genero)) user.genero = genero;
+  if (data_nascimento !== undefined) user.data_nascimento = data_nascimento || null;
   if (avatar_url !== undefined) user.avatar_url = avatar_url;
-  if (bio !== undefined) user.bio = bio;
   if (push_token !== undefined) user.push_token = push_token;
   if (notifications_enabled !== undefined) user.notifications_enabled = notifications_enabled;
 
   await user.save();
-  res.json({ id: user.id, nome: user.nome, avatar_url: user.avatar_url });
+  res.json({ id: user.id, nome: user.nome, nickname: user.nickname, avatar_url: user.avatar_url });
 });
 
 exports.getAvailability = asyncHandler(async (req, res) => {

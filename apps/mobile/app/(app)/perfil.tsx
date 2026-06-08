@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Image, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Image, ActivityIndicator, TextInput, Switch } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { useAuth } from '../../lib/auth-context'
 import { apiGet, apiPatch, apiPost, BASE_URL } from '../../lib/api'
+import { useToast } from '../../components/Toast'
 import { Btn, Avatar, Screen, SegmentedPicker, colors as C, fonts as F } from '../../components/ui'
 import { sportColors, sportLabels } from '@racket-app/ui'
 
@@ -41,6 +42,243 @@ const TIME_OPTIONS = Array.from({ length: 36 }, (_, i) => {
 const SIDE_LABELS: Record<string, string> = { left: 'Lado esquerdo', right: 'Lado direito', both: 'Ambos os lados' }
 const LEVEL_LABELS: Record<string, string> = { beginner: 'Iniciante', intermediate: 'Intermediário', advanced: 'Avançado', competitive: 'Competitivo' }
 const FORMAT_LABELS: Record<string, string> = { singles: 'Simples', doubles: 'Duplas', both: 'Ambos' }
+
+interface Cidade { id: string; nome: string; estado: string }
+
+interface ProfileData {
+  nome: string
+  nickname: string
+  bio: string
+  phone: string
+  genero: 'male' | 'female' | 'other' | ''
+  data_nascimento: string
+  cidade_id: string
+  cidade_nome: string
+  notifications_enabled: boolean
+}
+
+function EditProfileModal({ visible, initial, onClose, onSaved }: {
+  visible: boolean
+  initial: ProfileData
+  onClose: () => void
+  onSaved: (data: ProfileData) => void
+}) {
+  const { showToast } = useToast()
+  const [form, setForm] = useState<ProfileData>(initial)
+  const [cidades, setCidades] = useState<Cidade[]>([])
+  const [cidadeModal, setCidadeModal] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (visible) {
+      setForm(initial)
+      apiGet<Cidade[]>('/cidades').then(setCidades).catch(() => {})
+    }
+  }, [visible])
+
+  function set(key: keyof ProfileData, value: string | boolean) {
+    setForm(prev => ({ ...prev, [key]: value }))
+  }
+
+  async function save() {
+    if (!form.nome.trim() || form.nome.trim().length < 2) {
+      showToast({ type: 'error', title: 'Nome muito curto', message: 'Mínimo 2 caracteres' })
+      return
+    }
+    setSaving(true)
+    try {
+      await Promise.all([
+        apiPatch('/me', {
+          nome: form.nome.trim(),
+          nickname: form.nickname.trim() || null,
+          bio: form.bio.trim() || null,
+          phone: form.phone.trim() || null,
+          genero: form.genero || undefined,
+          data_nascimento: form.data_nascimento || null,
+          notifications_enabled: form.notifications_enabled,
+        }),
+        form.cidade_id ? apiPatch('/me/location', { cidade_id: form.cidade_id }) : Promise.resolve(),
+      ])
+      showToast({ type: 'success', title: 'Perfil atualizado!' })
+      onSaved(form)
+    } catch (e: unknown) {
+      showToast({ type: 'error', title: 'Erro ao salvar', message: (e as { message?: string })?.message })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <>
+      <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+        <View style={{ flex: 1, backgroundColor: C.cream }}>
+          <View style={ep.header}>
+            <Text style={ep.title}>Editar perfil</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={10}>
+              <Ionicons name="close" size={22} color={C.inkSoft} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 20, gap: 20 }}>
+            {/* Nome */}
+            <View>
+              <Text style={ep.label}>Nome completo</Text>
+              <TextInput
+                style={ep.input}
+                value={form.nome}
+                onChangeText={v => set('nome', v)}
+                placeholder="Seu nome"
+                placeholderTextColor={C.inkSoft}
+              />
+            </View>
+
+            {/* Apelido */}
+            <View>
+              <Text style={ep.label}>Apelido <Text style={ep.optional}>(opcional)</Text></Text>
+              <View style={ep.inputPrefix}>
+                <Text style={ep.prefixText}>@</Text>
+                <TextInput
+                  style={[ep.input, { flex: 1, marginBottom: 0 }]}
+                  value={form.nickname}
+                  onChangeText={v => set('nickname', v.replace(/\s/g, '').toLowerCase())}
+                  placeholder="seu_apelido"
+                  placeholderTextColor={C.inkSoft}
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            {/* Bio */}
+            <View>
+              <Text style={ep.label}>Bio <Text style={ep.optional}>(opcional)</Text></Text>
+              <TextInput
+                style={[ep.input, { height: 80, textAlignVertical: 'top', paddingTop: 12 }]}
+                value={form.bio}
+                onChangeText={v => set('bio', v)}
+                placeholder="Fale um pouco sobre você..."
+                placeholderTextColor={C.inkSoft}
+                multiline
+                maxLength={200}
+              />
+            </View>
+
+            {/* Telefone */}
+            <View>
+              <Text style={ep.label}>Telefone <Text style={ep.optional}>(opcional)</Text></Text>
+              <TextInput
+                style={ep.input}
+                value={form.phone}
+                onChangeText={v => set('phone', v)}
+                placeholder="+55 (48) 99999-9999"
+                placeholderTextColor={C.inkSoft}
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            {/* Data de nascimento */}
+            <View>
+              <Text style={ep.label}>Data de nascimento <Text style={ep.optional}>(opcional)</Text></Text>
+              <TextInput
+                style={ep.input}
+                value={form.data_nascimento}
+                onChangeText={v => set('data_nascimento', v)}
+                placeholder="AAAA-MM-DD"
+                placeholderTextColor={C.inkSoft}
+                keyboardType="numbers-and-punctuation"
+                maxLength={10}
+              />
+            </View>
+
+            {/* Gênero */}
+            <View>
+              <Text style={ep.label}>Gênero</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {([['male', 'Masculino'], ['female', 'Feminino'], ['other', 'Prefiro não dizer']] as const).map(([val, lbl]) => (
+                  <TouchableOpacity
+                    key={val}
+                    onPress={() => set('genero', val)}
+                    activeOpacity={0.8}
+                    style={[ep.genderChip, form.genero === val && ep.genderChipActive]}
+                  >
+                    <Text style={[ep.genderChipText, form.genero === val && ep.genderChipTextActive]}>{lbl}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Cidade */}
+            <View>
+              <Text style={ep.label}>Cidade padrão</Text>
+              <TouchableOpacity onPress={() => setCidadeModal(true)} activeOpacity={0.8} style={ep.cityPicker}>
+                <Ionicons name="location-outline" size={16} color={C.inkSoft} />
+                <Text style={[ep.cityPickerText, !form.cidade_nome && { color: C.inkSoft }]}>
+                  {form.cidade_nome || 'Selecionar cidade'}
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color={C.inkSoft} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Notificações */}
+            <View style={ep.switchRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={ep.switchLabel}>Notificações</Text>
+                <Text style={ep.switchSub}>Receber avisos de jogos e atualizações</Text>
+              </View>
+              <Switch
+                value={form.notifications_enabled}
+                onValueChange={v => set('notifications_enabled', v)}
+                trackColor={{ false: C.line, true: C.lime }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            <Btn fullWidth onPress={save} disabled={saving}>
+              {saving ? 'Salvando…' : 'Salvar alterações'}
+            </Btn>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* sub-modal de cidade */}
+      <Modal visible={cidadeModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCidadeModal(false)}>
+        <View style={{ flex: 1, backgroundColor: C.cream }}>
+          <View style={ep.header}>
+            <Text style={ep.title}>Escolher cidade</Text>
+            <TouchableOpacity onPress={() => setCidadeModal(false)} hitSlop={10}>
+              <Ionicons name="close" size={22} color={C.inkSoft} />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={cidades}
+            keyExtractor={c => c.id}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+            ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: C.line }} />}
+            renderItem={({ item }) => {
+              const selected = item.id === form.cidade_id
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, gap: 12 }}
+                  onPress={() => {
+                    set('cidade_id', item.id)
+                    set('cidade_nome', `${item.nome}, ${item.estado}`)
+                    setCidadeModal(false)
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 15, fontFamily: F.bodyBold, color: selected ? C.ink : C.inkSoft }}>{item.nome}</Text>
+                    <Text style={{ fontSize: 12, fontFamily: F.body, color: C.inkSoft, marginTop: 1 }}>{item.estado}</Text>
+                  </View>
+                  {selected ? <Ionicons name="checkmark-circle" size={20} color={C.lime} /> : null}
+                </TouchableOpacity>
+              )
+            }}
+          />
+        </View>
+      </Modal>
+    </>
+  )
+}
 
 const PADEL_CATEGORIES = [
   ['8a', '8ª'], ['7a', '7ª'], ['6a', '6ª'], ['5a', '5ª'],
@@ -193,6 +431,12 @@ export default function PerfilScreen() {
   const [timePicker, setTimePicker] = useState<{ day: DayKey; idx: number; field: 'from' | 'to' } | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [profileData, setProfileData] = useState<ProfileData>({
+    nome: '', nickname: '', bio: '', phone: '',
+    genero: '', data_nascimento: '', cidade_id: '', cidade_nome: '',
+    notifications_enabled: true,
+  })
   const [stats, setStats] = useState<{
     games_played: number
     games_attended: number
@@ -262,25 +506,38 @@ export default function PerfilScreen() {
 
   useEffect(() => { load() }, [load])
 
-  // Carrega avatar e stats
+  // Carrega avatar, stats e dados editáveis do perfil
   useEffect(() => {
-    apiGet<{
-      avatar_url?: string
-      games_played?: number
-      games_attended?: number
-      avg_score?: number | null
-      top_badges?: { key: string; count: number }[]
-    }>('/me')
-      .then(me => {
-        if (me.avatar_url) setAvatarUrl(me.avatar_url)
-        setStats({
-          games_played: me.games_played ?? 0,
-          games_attended: me.games_attended ?? 0,
-          avg_score: me.avg_score ?? null,
-          top_badges: me.top_badges ?? [],
-        })
+    Promise.all([
+      apiGet<{
+        avatar_url?: string; nome?: string; nickname?: string; bio?: string
+        phone?: string; genero?: string; data_nascimento?: string
+        notifications_enabled?: boolean; cidade_id?: string
+        games_played?: number; games_attended?: number
+        avg_score?: number | null; top_badges?: { key: string; count: number }[]
+      }>('/me'),
+      apiGet<{ cidade_id?: string; nome?: string; estado?: string }>('/me/location').catch(() => ({})),
+    ]).then(([me, loc]) => {
+      if (me.avatar_url) setAvatarUrl(me.avatar_url)
+      setStats({
+        games_played: me.games_played ?? 0,
+        games_attended: me.games_attended ?? 0,
+        avg_score: me.avg_score ?? null,
+        top_badges: me.top_badges ?? [],
       })
-      .catch(() => {})
+      const cidadeNome = loc.nome ? `${loc.nome}, ${loc.estado ?? ''}`.trim().replace(/,$/, '') : ''
+      setProfileData({
+        nome: me.nome ?? '',
+        nickname: me.nickname ?? '',
+        bio: me.bio ?? '',
+        phone: me.phone ?? '',
+        genero: (me.genero as ProfileData['genero']) ?? '',
+        data_nascimento: me.data_nascimento ?? '',
+        cidade_id: loc.cidade_id ?? me.cidade_id ?? '',
+        cidade_nome: cidadeNome,
+        notifications_enabled: me.notifications_enabled ?? true,
+      })
+    }).catch(() => {})
   }, [])
 
   function openEdit(profile: SportProfile) {
@@ -429,12 +686,20 @@ export default function PerfilScreen() {
             </View>
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={s.userName}>{user.name}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-              <Ionicons name="location-outline" size={13} color={C.inkSoft} />
-              <Text style={{ fontSize: 13, color: C.inkSoft, fontFamily: F.bodySemi }}>Joinville, SC</Text>
-            </View>
+            <Text style={s.userName}>{profileData.nome || user.name}</Text>
+            {profileData.nickname ? (
+              <Text style={{ fontSize: 12, color: C.inkSoft, fontFamily: F.bodySemi, marginTop: 1 }}>@{profileData.nickname}</Text>
+            ) : null}
+            {profileData.cidade_nome ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                <Ionicons name="location-outline" size={13} color={C.inkSoft} />
+                <Text style={{ fontSize: 13, color: C.inkSoft, fontFamily: F.bodySemi }}>{profileData.cidade_nome}</Text>
+              </View>
+            ) : null}
           </View>
+          <TouchableOpacity onPress={() => setEditOpen(true)} activeOpacity={0.7} style={s.gearBtn} hitSlop={8}>
+            <Ionicons name="settings-outline" size={22} color={C.inkSoft} />
+          </TouchableOpacity>
         </View>
 
         {/* stats */}
@@ -716,6 +981,16 @@ export default function PerfilScreen() {
         onClose={closeModal}
         onSaved={handleSportSaved}
       />
+
+      <EditProfileModal
+        visible={editOpen}
+        initial={profileData}
+        onClose={() => setEditOpen(false)}
+        onSaved={(data) => {
+          setProfileData(data)
+          setEditOpen(false)
+        }}
+      />
     </Screen>
   )
 }
@@ -844,6 +1119,12 @@ const s = StyleSheet.create({
   },
   timeOptionText: { fontSize: 17, fontFamily: F.bodySemi, color: C.inkSoft },
 
+  gearBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
+  },
+
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     padding: 14, borderRadius: 18, borderWidth: 1.5, borderColor: C.line,
@@ -862,4 +1143,47 @@ const s = StyleSheet.create({
   sportPickItem: {
     flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: 2,
   },
+})
+
+// ── EditProfileModal styles ───────────────────────────────────────────────────
+
+const ep = StyleSheet.create({
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: 20, borderBottomWidth: 1, borderBottomColor: C.line,
+  },
+  title: { fontFamily: F.headingBold, fontSize: 20, color: C.ink, letterSpacing: -0.3 },
+  label: { fontSize: 11, fontFamily: F.bodyBold, color: C.inkSoft, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 },
+  optional: { fontFamily: F.body, textTransform: 'none', letterSpacing: 0 },
+  input: {
+    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
+    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13,
+    fontSize: 15, fontFamily: F.bodySemi, color: C.ink,
+  },
+  inputPrefix: {
+    flexDirection: 'row', alignItems: 'center', gap: 0,
+    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
+    borderRadius: 14, paddingLeft: 14, overflow: 'hidden',
+  },
+  prefixText: { fontSize: 15, fontFamily: F.bodySemi, color: C.inkSoft },
+  genderChip: {
+    flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5,
+    borderColor: C.line, backgroundColor: C.card, alignItems: 'center',
+  },
+  genderChipActive: { borderColor: C.ink, backgroundColor: C.ink },
+  genderChipText: { fontSize: 12, fontFamily: F.bodyBold, color: C.inkSoft },
+  genderChipTextActive: { color: C.lime },
+  cityPicker: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
+    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13,
+  },
+  cityPickerText: { flex: 1, fontSize: 15, fontFamily: F.bodySemi, color: C.ink },
+  switchRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
+    borderRadius: 14, padding: 14,
+  },
+  switchLabel: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
+  switchSub: { fontSize: 12, fontFamily: F.body, color: C.inkSoft, marginTop: 2 },
 })
