@@ -371,7 +371,10 @@ export default function DescobrirScreen() {
           return (
             <TouchableOpacity
               key={f.key}
-              onPress={() => setSportFilter(f.key)}
+              onPress={() => {
+                setSportFilter(f.key)
+                setAdvFilters(p => ({ ...p, categories: [], skillLevel: '' }))
+              }}
               activeOpacity={0.8}
               style={[
                 s.filterSegment,
@@ -511,7 +514,7 @@ export default function DescobrirScreen() {
             {/* Categoria — padel */}
             {(sportFilter === 'all' || sportFilter === 'padel') ? (
               <View>
-                <Text style={fm.sectionLabel}>Categoria Padel</Text>
+                <Text style={fm.sectionLabel}>{sportFilter === 'padel' ? 'Categoria' : 'Categoria Padel'}</Text>
                 <View style={fm.chipRow}>
                   {PADEL_CATS.map(cat => {
                     const on = advFilters.categories.includes(cat)
@@ -533,7 +536,7 @@ export default function DescobrirScreen() {
             {/* Categoria — beach tennis */}
             {(sportFilter === 'all' || sportFilter === 'beach_tennis') ? (
               <View>
-                <Text style={fm.sectionLabel}>Categoria Beach Tennis</Text>
+                <Text style={fm.sectionLabel}>{sportFilter === 'beach_tennis' ? 'Categoria' : 'Categoria Beach Tennis'}</Text>
                 <View style={fm.chipRow}>
                   {BEACH_CATS.map(cat => {
                     const on = advFilters.categories.includes(cat)
@@ -555,7 +558,7 @@ export default function DescobrirScreen() {
             {/* Nível — tênis */}
             {(sportFilter === 'all' || sportFilter === 'tennis') ? (
               <View>
-                <Text style={fm.sectionLabel}>Nível (Tênis)</Text>
+                <Text style={fm.sectionLabel}>{sportFilter === 'tennis' ? 'Nível' : 'Nível (Tênis)'}</Text>
                 <View style={fm.chipRow}>
                   {SKILL_OPTS.map(([val, lbl]) => {
                     const on = advFilters.skillLevel === val
