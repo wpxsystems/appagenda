@@ -318,17 +318,13 @@ export default function DescobrirScreen() {
       </View>
 
 
-      {/* Barra de filtros unificada — scroll horizontal */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.filterStrip}
-        style={s.filterStripWrap}
-      >
-        {/* Esportes */}
-        {FILTERS.map(f => {
+      {/* Filter bar — 4 campos iguais */}
+      <View style={s.filterBar}>
+        {FILTERS.map((f, idx) => {
           const active = sportFilter === f.key
           const count = counts[f.key] ?? 0
+          const isFirst = idx === 0
+          const isLast = idx === FILTERS.length - 1
           const activeBg = f.color ? sportColors[f.color as keyof typeof sportColors] : C.ink
           return (
             <TouchableOpacity
@@ -338,58 +334,67 @@ export default function DescobrirScreen() {
                 setAdvFilters(p => ({ ...p, categories: [], skillLevel: '' }))
               }}
               activeOpacity={0.8}
-              style={[s.filterChip, active && { backgroundColor: activeBg, borderColor: activeBg }]}
+              style={[
+                s.filterSegment,
+                isFirst && s.filterSegmentFirst,
+                isLast && s.filterSegmentLast,
+                active && { backgroundColor: activeBg },
+              ]}
             >
-              <Text style={[s.filterChipText, active && { color: '#fff' }]}>{f.label}</Text>
-              {count > 0 ? (
-                <Text style={[s.filterChipCount, active && { color: 'rgba(255,255,255,0.75)' }]}>{count}</Text>
-              ) : null}
+              <Text style={[s.filterSegmentText, active && s.filterSegmentTextActive]}>
+                {f.label}
+              </Text>
+              <Text style={[s.filterSegmentCount, active && s.filterSegmentCountActive, count === 0 && s.filterSegmentCountZero]}>
+                {count}
+              </Text>
             </TouchableOpacity>
           )
         })}
+      </View>
 
-        {/* Separador */}
-        <View style={s.filterStripDivider} />
+      {/* Botão de filtros avançados + data */}
+      <View style={s.filterAdvRow}>
+        <TouchableOpacity
+          onPress={() => setFilterModal(true)}
+          activeOpacity={0.8}
+          style={[s.filterAdvBtn, activeFilterCount > 0 && s.filterAdvBtnActive]}
+        >
+          <Ionicons name="options-outline" size={15} color={activeFilterCount > 0 ? '#fff' : C.inkSoft} />
+          <Text style={[s.filterAdvText, activeFilterCount > 0 && { color: '#fff' }]}>
+            {activeFilterCount > 0 ? `Filtros (${activeFilterCount})` : 'Filtros'}
+          </Text>
+          {activeFilterCount > 0 ? (
+            <TouchableOpacity
+              onPress={() => setAdvFilters(DEFAULT_FILTERS)}
+              hitSlop={8}
+              style={s.filterAdvClear}
+            >
+              <Ionicons name="close-circle" size={14} color="rgba(255,255,255,0.8)" />
+            </TouchableOpacity>
+          ) : null}
+        </TouchableOpacity>
 
-        {/* Data */}
         <TouchableOpacity
           onPress={() => {
             if (selectedDate) setCalMonth(() => { const d = new Date(selectedDate); d.setDate(1); d.setHours(0,0,0,0); return d })
             setDatePickerOpen(true)
           }}
           activeOpacity={0.8}
-          style={[s.filterChip, selectedDate && { backgroundColor: C.ink, borderColor: C.ink }]}
+          style={[s.datePillBtn, selectedDate && s.datePillBtnActive]}
         >
-          <Ionicons name="calendar-outline" size={13} color={selectedDate ? '#fff' : C.inkSoft} />
-          <Text style={[s.filterChipText, selectedDate && { color: '#fff' }]}>
+          <Ionicons name="calendar-outline" size={14} color={selectedDate ? '#fff' : C.inkSoft} />
+          <Text style={[s.datePillText, selectedDate && { color: '#fff' }]}>
             {selectedDate
               ? `${PT_WEEKDAY_SHORT[selectedDate.getDay()]}, ${selectedDate.getDate()} ${PT_MONTH_SHORT[selectedDate.getMonth()]}`
-              : 'Data'}
+              : 'Qualquer data'}
           </Text>
           {selectedDate ? (
-            <TouchableOpacity onPress={() => setSelectedDate(null)} hitSlop={8}>
-              <Ionicons name="close-circle" size={13} color="rgba(255,255,255,0.7)" />
+            <TouchableOpacity onPress={() => setSelectedDate(null)} hitSlop={8} style={{ marginLeft: 2 }}>
+              <Ionicons name="close-circle" size={14} color="rgba(255,255,255,0.8)" />
             </TouchableOpacity>
           ) : null}
         </TouchableOpacity>
-
-        {/* Filtros avançados */}
-        <TouchableOpacity
-          onPress={() => setFilterModal(true)}
-          activeOpacity={0.8}
-          style={[s.filterChip, activeFilterCount > 0 && { backgroundColor: C.ink, borderColor: C.ink }]}
-        >
-          <Ionicons name="options-outline" size={13} color={activeFilterCount > 0 ? '#fff' : C.inkSoft} />
-          <Text style={[s.filterChipText, activeFilterCount > 0 && { color: '#fff' }]}>
-            {activeFilterCount > 0 ? `Filtros · ${activeFilterCount}` : 'Filtros'}
-          </Text>
-          {activeFilterCount > 0 ? (
-            <TouchableOpacity onPress={() => setAdvFilters(DEFAULT_FILTERS)} hitSlop={8}>
-              <Ionicons name="close-circle" size={13} color="rgba(255,255,255,0.7)" />
-            </TouchableOpacity>
-          ) : null}
-        </TouchableOpacity>
-      </ScrollView>
+      </View>
 
       {/* Games list */}
       {loading ? (
@@ -770,23 +775,34 @@ const s = StyleSheet.create({
   },
 
   // Filter segmented control
-  // Filter strip
-  filterStripWrap: { borderBottomWidth: 1, borderBottomColor: C.line },
-  filterStrip: { paddingHorizontal: 16, paddingVertical: 10, gap: 8, alignItems: 'center' },
-  filterChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 13, paddingVertical: 7,
-    borderRadius: 999, borderWidth: 1.5, borderColor: C.line, backgroundColor: C.card,
+  filterBar: {
+    flexDirection: 'row',
+    marginHorizontal: 16, marginBottom: 12,
+    backgroundColor: C.card,
+    borderRadius: 14, borderWidth: 1.5, borderColor: C.line,
+    overflow: 'hidden',
   },
-  filterChipText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
-  filterChipCount: { fontSize: 12, fontFamily: F.bodyBold, color: C.inkSoft },
-  filterStripDivider: { width: 1, height: 20, backgroundColor: C.line, marginHorizontal: 2 },
-  // legacy refs (unused but kept for safety)
-  filterBar: { flexDirection: 'row' },
-  filterSegment: {}, filterSegmentFirst: {}, filterSegmentLast: {},
-  filterSegmentActive: {}, filterSegmentText: {}, filterSegmentTextActive: {},
-  filterSegmentCount: {}, filterSegmentCountZero: {}, filterSegmentCountActive: {},
-  filterScroll: {}, filterRow: {}, filterPillText: {}, filterCount: {}, filterCountActive: {},
+  filterSegment: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 9, gap: 2,
+    borderRightWidth: 1, borderRightColor: C.line,
+  },
+  filterSegmentFirst: { borderLeftWidth: 0 },
+  filterSegmentLast:  { borderRightWidth: 0 },
+  filterSegmentActive: { backgroundColor: C.ink },
+  filterSegmentText: { fontSize: 15, fontFamily: F.bodyBold, color: C.inkSoft },
+  filterSegmentTextActive: { color: C.cream },
+  filterSegmentCount: {
+    fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft,
+  },
+  filterSegmentCountZero: { opacity: 0.45 },
+  filterSegmentCountActive: { color: '#fff' },
+  // kept for any remaining refs
+  filterScroll: { flexGrow: 0 },
+  filterRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 14 },
+  filterPillText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
+  filterCount: { fontSize: 12, fontFamily: F.bodySemi, color: C.inkSoft },
+  filterCountActive: { color: `${C.cream}CC` },
 
   // Scroll
   scroll: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
@@ -885,10 +901,26 @@ const s = StyleSheet.create({
   createPromptTitle: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
   createPromptSub: { fontSize: 12, fontFamily: F.body, color: C.inkSoft, marginTop: 2 },
 
-  // legacy filter adv refs
-  filterAdvRow: {}, filterAdvBtn: {}, filterAdvBtnActive: {},
-  filterAdvText: {}, filterAdvClear: {},
-  datePillBtn: {}, datePillBtnActive: {}, datePillText: {},
+  // Filter adv button row
+  filterAdvRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginHorizontal: 16, marginBottom: 8,
+  },
+  filterAdvBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: 999, borderWidth: 1.5, borderColor: C.line, backgroundColor: C.card,
+  },
+  filterAdvBtnActive: { backgroundColor: C.ink, borderColor: C.ink },
+  filterAdvText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
+  filterAdvClear: { marginLeft: 2 },
+  datePillBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: 999, borderWidth: 1.5, borderColor: C.line, backgroundColor: C.card,
+  },
+  datePillBtnActive: { backgroundColor: C.ink, borderColor: C.ink },
+  datePillText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
 
   // Modal cidade
   modalWrap: { flex: 1, backgroundColor: C.cream },
