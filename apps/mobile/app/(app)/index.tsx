@@ -908,19 +908,17 @@ const s = StyleSheet.create({
   },
   filterAdvBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 999, borderWidth: 1.5, borderColor: C.line, backgroundColor: C.card,
+    paddingHorizontal: 10, paddingVertical: 7,
   },
-  filterAdvBtnActive: { backgroundColor: C.ink, borderColor: C.ink },
-  filterAdvText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
+  filterAdvBtnActive: {},
+  filterAdvText: { fontSize: 13, fontFamily: F.bodyBold, color: C.ink },
   filterAdvClear: { marginLeft: 2 },
   datePillBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 999, borderWidth: 1.5, borderColor: C.line, backgroundColor: C.card,
+    paddingHorizontal: 10, paddingVertical: 7,
   },
-  datePillBtnActive: { backgroundColor: C.ink, borderColor: C.ink },
-  datePillText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
+  datePillBtnActive: {},
+  datePillText: { fontSize: 13, fontFamily: F.bodyBold, color: C.ink },
 
   // Modal cidade
   modalWrap: { flex: 1, backgroundColor: C.cream },
