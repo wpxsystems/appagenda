@@ -390,7 +390,7 @@ export default function DescobrirScreen() {
           </Text>
           {selectedDate ? (
             <TouchableOpacity onPress={() => setSelectedDate(null)} hitSlop={8} style={{ marginLeft: 2 }}>
-              <Ionicons name="close-circle" size={14} color="rgba(255,255,255,0.8)" />
+              <Ionicons name="close-circle" size={14} color={C.inkSoft} />
             </TouchableOpacity>
           ) : null}
         </TouchableOpacity>
