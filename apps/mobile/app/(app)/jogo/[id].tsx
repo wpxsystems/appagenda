@@ -317,6 +317,7 @@ export default function JogoDetailScreen() {
   const [mySports, setMySports] = useState<string[]>([])
   const scrollRef = useRef<ScrollView>(null)
   const { showToast, showConfirm } = useToast()
+  const insets = useSafeAreaInsets()
 
   const loadJogo = useCallback(async () => {
     setJogo(null)
@@ -478,7 +479,6 @@ export default function JogoDetailScreen() {
   const label = sportLabels[jogo.sport as keyof typeof sportLabels] ?? jogo.sport
   const isCancelled = jogo.status === 'cancelled'
   const openSlots = jogo.vacancies_total - jogo.participacoes.length
-  const insets = useSafeAreaInsets()
 
   return (
     <KeyboardAvoidingView
