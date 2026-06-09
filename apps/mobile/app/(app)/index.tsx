@@ -918,7 +918,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 7,
   },
   datePillBtnActive: {},
-  datePillText: { fontSize: 13, fontFamily: F.bodyBold, color: C.ink },
+  datePillText: { fontSize: 15, fontFamily: F.bodyBold, color: C.ink },
 
   // Modal cidade
   modalWrap: { flex: 1, backgroundColor: C.cream },
