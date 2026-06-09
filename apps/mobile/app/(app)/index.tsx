@@ -911,7 +911,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 7,
   },
   filterAdvBtnActive: {},
-  filterAdvText: { fontSize: 13, fontFamily: F.bodyBold, color: C.ink },
+  filterAdvText: { fontSize: 15, fontFamily: F.bodyBold, color: C.ink },
   filterAdvClear: { marginLeft: 2 },
   datePillBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
