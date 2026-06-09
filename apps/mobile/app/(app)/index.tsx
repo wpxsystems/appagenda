@@ -382,8 +382,8 @@ export default function DescobrirScreen() {
           activeOpacity={0.8}
           style={[s.datePillBtn, selectedDate && s.datePillBtnActive]}
         >
-          <Ionicons name="calendar-outline" size={14} color={selectedDate ? '#fff' : C.inkSoft} />
-          <Text style={[s.datePillText, selectedDate && { color: '#fff' }]}>
+          <Ionicons name="calendar-outline" size={14} color={C.inkSoft} />
+          <Text style={s.datePillText}>
             {selectedDate
               ? `${PT_WEEKDAY_SHORT[selectedDate.getDay()]}, ${selectedDate.getDate()} ${PT_MONTH_SHORT[selectedDate.getMonth()]}`
               : 'Qualquer data'}
