@@ -147,27 +147,28 @@ export default function GroupScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Members horizontal scroll */}
-      {(group?.members.length ?? 0) > 0 ? (
-        <ScrollView
-          horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.membersScroll}
-        >
+      {/* Members section */}
+      <View style={s.membersSection}>
+        <View style={s.membersSectionHeader}>
+          <Text style={s.membersSectionTitle}>
+            {group?.members.length ?? 0} {(group?.members.length ?? 1) === 1 ? 'membro' : 'membros'}
+          </Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.membersScroll}>
           {(group?.members ?? []).map(m => (
             <View key={m.id} style={s.memberItem}>
               <View style={[s.memberAvatar, { backgroundColor: avatarColor(m.id) }]}>
                 <Text style={s.memberAvatarText}>{initials(m.nome)}</Text>
+                {m.role === 'admin' ? <View style={s.adminDot} /> : null}
               </View>
               <Text style={s.memberName} numberOfLines={1}>{m.nome.split(' ')[0]}</Text>
-              {m.role === 'admin' ? (
-                <View style={s.adminDot} />
-              ) : null}
             </View>
           ))}
+          <TouchableOpacity style={s.addMemberBtn} onPress={openInvite}>
+            <Ionicons name="add" size={22} color={accentColor} />
+          </TouchableOpacity>
         </ScrollView>
-      ) : null}
-
-      <View style={[s.divider, { backgroundColor: `${accentColor}30` }]} />
+      </View>
 
       {/* Messages */}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
@@ -307,14 +308,21 @@ const s = StyleSheet.create({
   inviteBtnText: { fontSize: 13, fontFamily: F.bodyBold, color: C.ink },
 
   // Members
-  membersScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 16 },
-  memberItem: { alignItems: 'center', gap: 4, width: 52 },
-  memberAvatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  memberAvatarText: { fontSize: 15, fontFamily: F.bodyBold, color: '#fff' },
-  memberName: { fontSize: 11, fontFamily: F.bodySemi, color: C.inkSoft, textAlign: 'center', width: 52 },
-  adminDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#CBF135', position: 'absolute', top: 0, right: 4 },
-
-  divider: { height: 1 },
+  membersSection: { backgroundColor: C.card, borderBottomWidth: 1, borderBottomColor: C.line },
+  membersSectionHeader: { paddingHorizontal: 16, paddingTop: 10 },
+  membersSectionTitle: { fontSize: 11, fontFamily: F.bodyBold, color: C.inkSoft, textTransform: 'uppercase', letterSpacing: 1.2 },
+  membersScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 14 },
+  memberItem: { alignItems: 'center', gap: 5, width: 56 },
+  memberAvatar: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
+  memberAvatarText: { fontSize: 17, fontFamily: F.bodyBold, color: '#fff' },
+  memberName: { fontSize: 11, fontFamily: F.bodySemi, color: C.inkSoft, textAlign: 'center', width: 56 },
+  adminDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#CBF135', borderWidth: 1.5, borderColor: C.card, position: 'absolute', bottom: 2, right: 2 },
+  addMemberBtn: {
+    width: 50, height: 50, borderRadius: 25,
+    borderWidth: 2, borderColor: C.line, borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center',
+    alignSelf: 'center',
+  },
 
   // Messages
   msgList: { padding: 16, gap: 10, flexGrow: 1 },
