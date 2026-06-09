@@ -144,6 +144,7 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
         await apiPatch('/me/location', { cidade_id: form.cidade_id }).catch(() => {})
       }
 
+      setSaving(false)
       onSaved({ ...form, phone: phoneDisplay, data_nascimento: apiDate })
     } catch (e: unknown) {
       const msg = (e as { message?: string })?.message ?? 'Erro ao salvar. Tente novamente.'
