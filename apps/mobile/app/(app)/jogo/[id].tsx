@@ -490,7 +490,7 @@ export default function JogoDetailScreen() {
       {/* ── Header fixo ── */}
       <View style={[s.header, { paddingTop: insets.top + 6 }]}>
         {/* Coluna esquerda: botão voltar */}
-        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace(`/(app)/meus-jogos${fromTab ? '?tab=' + fromTab : ''}` as never)} style={s.backBtn} activeOpacity={0.8}>
+        <TouchableOpacity onPress={() => fromTab ? router.replace(`/(app)/meus-jogos?tab=${fromTab}` as never) : router.back()} style={s.backBtn} activeOpacity={0.8}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
 
