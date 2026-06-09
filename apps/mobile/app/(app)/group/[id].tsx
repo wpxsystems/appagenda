@@ -1,44 +1,59 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput,
-  FlatList, Modal, ActivityIndicator, Alert, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, TextInput,
+  FlatList, Modal, ActivityIndicator, ScrollView,
   KeyboardAvoidingView, Platform,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { colors, spacing, fontSize, borderRadius } from '@racket-app/ui'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { sportColors } from '@racket-app/ui'
+import { colors as C, fontFamily as F } from '../../../components/ui'
 import { apiGet, apiPost } from '../../../lib/api'
 import { useAuth } from '../../../lib/auth-context'
+import { useToast } from '../../../components/Toast'
 
 type Message = {
   id: string; content: string; created_at: string; user_id: string
   user?: { id: string; nome: string }
 }
+type Member = { id: string; nome: string; avatar_url: string | null; role: string }
 type GroupDetail = {
   id: string; nome: string; sport: string | null; is_admin: boolean
-  members: { id: string; nome: string; avatar_url: string | null; role: string }[]
+  members: Member[]
 }
 type ApiConnection = {
   id: string; nome: string; avatar_url: string | null; is_favorite?: boolean
-  last_game_at?: string | null
 }
 
 const SPORT_LABEL: Record<string, string> = {
   padel: 'Padel', beach_tennis: 'Beach Tennis', tennis: 'Tênis',
 }
 
-const SPORT_COLOR: Record<string, string> = {
-  padel: '#2E7D32',
-  beach_tennis: '#B45309',
-  tennis: '#1565C0',
+const AVATAR_COLORS = ['#2E6F9E','#D4880A','#B03A2E','#5B7A4C','#8A5A9E','#C2607F','#3A7A6E','#A0622A']
+
+function avatarColor(id: string) {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % AVATAR_COLORS.length
+  return AVATAR_COLORS[h]
 }
 
-function initials(name: string) { return name.trim().slice(0, 1).toUpperCase() }
+function initials(name: string) {
+  return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase()
+}
+
+function formatTime(dt: string) {
+  const d = new Date(dt)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
 
 export default function GroupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const { user } = useAuth()
   const router = useRouter()
+  const insets = useSafeAreaInsets()
+  const { showToast } = useToast()
 
   const [group, setGroup] = useState<GroupDetail | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -56,7 +71,7 @@ export default function GroupScreen() {
     try {
       const data = await apiGet<GroupDetail>(`/community/groups/${id}`)
       setGroup(data)
-      setAlreadyInGroup(new Set(data.members.map((m) => m.id)))
+      setAlreadyInGroup(new Set(data.members.map(m => m.id)))
     } catch { /* ignore */ }
   }, [id])
 
@@ -77,7 +92,9 @@ export default function GroupScreen() {
       await apiPost(`/community/groups/${id}/messages`, { content: text.trim() })
       setText('')
       await loadMessages()
-    } catch (e: any) { Alert.alert('Erro', e.message) }
+    } catch (e: unknown) {
+      showToast({ type: 'error', title: (e as { message?: string }).message ?? 'Erro ao enviar' })
+    }
     setSending(false)
   }
 
@@ -86,13 +103,9 @@ export default function GroupScreen() {
     setLoadingInvite(true)
     try {
       const raw = await apiGet<{ recent_players: ApiConnection[]; favorites: ApiConnection[] }>('/community/favorites')
-      const favIds = new Set(raw.favorites.map((f) => f.id))
-      const all = [
-        ...raw.favorites,
-        ...(raw.recent_players ?? []).filter((r) => !favIds.has(r.id)),
-      ]
-      setConnections(all)
-    } catch (e: any) { Alert.alert('Erro', e.message) }
+      const favIds = new Set(raw.favorites.map(f => f.id))
+      setConnections([...raw.favorites, ...(raw.recent_players ?? []).filter(r => !favIds.has(r.id))])
+    } catch { /* ignore */ }
     setLoadingInvite(false)
   }
 
@@ -101,240 +114,268 @@ export default function GroupScreen() {
     try {
       await apiPost(`/community/groups/${id}/invite-user`, { targetUserId: targetId })
       setAlreadyInGroup(prev => new Set([...prev, targetId]))
-      Alert.alert('Convidado!', 'A pessoa foi adicionada ao grupo.')
-    } catch (e: any) {
-      if (e.message?.includes('already')) Alert.alert('', 'Essa pessoa já está no grupo.')
-      else Alert.alert('Erro', e.message)
+      showToast({ type: 'success', title: 'Convidado com sucesso!' })
+    } catch (e: unknown) {
+      showToast({ type: 'error', title: (e as { message?: string }).message ?? 'Erro ao convidar' })
     }
     setInvitingUserId(null)
   }
 
   const myId = user?.id ?? ''
-  const sportColor = group?.sport ? (SPORT_COLOR[group.sport as keyof typeof SPORT_COLOR] ?? colors.secondary) : colors.secondary
-  const visibleMembers = group?.members.slice(0, 5) ?? []
-  const extraMembers = (group?.members.length ?? 0) - visibleMembers.length
+  const sport = group?.sport ?? null
+  const accentColor = sport ? (sportColors[sport as keyof typeof sportColors] ?? C.ink) : C.ink
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Colored header */}
-      <View style={[styles.header, { backgroundColor: sportColor }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={20} color="#fff" />
+    <View style={[s.root, { paddingTop: insets.top }]}>
+
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={10} style={s.backBtn}>
+          <Ionicons name="chevron-back" size={22} color={C.ink} />
         </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          {group?.sport && (
-            <Text style={styles.headerSport}>{SPORT_LABEL[group.sport] ?? group.sport}</Text>
-          )}
-          <Text style={styles.headerTitle}>{group?.nome ?? '...'}</Text>
+        <View style={{ flex: 1 }}>
+          {sport ? (
+            <View style={[s.sportTag, { backgroundColor: `${accentColor}18` }]}>
+              <Text style={[s.sportTagText, { color: accentColor }]}>{SPORT_LABEL[sport] ?? sport}</Text>
+            </View>
+          ) : null}
+          <Text style={s.headerTitle} numberOfLines={1}>{group?.nome ?? '…'}</Text>
         </View>
-        <Text style={styles.memberCount}>
-          {group?.members.length ?? 0} {(group?.members.length ?? 0) === 1 ? 'membro' : 'membros'}
-        </Text>
+        <TouchableOpacity onPress={openInvite} style={s.inviteBtn}>
+          <Ionicons name="person-add-outline" size={16} color={C.ink} />
+          <Text style={s.inviteBtnText}>Convidar</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Action bar: member avatars + buttons */}
-      <View style={styles.actionBar}>
-        <View style={styles.avatarRow}>
-          {visibleMembers.map((m, i) => (
-            <View key={m.id} style={[styles.memberAvatar, { marginLeft: i === 0 ? 0 : -10, zIndex: 10 - i, backgroundColor: sportColor }]}>
-              <Text style={styles.memberAvatarText}>{initials(m.nome)}</Text>
+      {/* Members horizontal scroll */}
+      {(group?.members.length ?? 0) > 0 ? (
+        <ScrollView
+          horizontal showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.membersScroll}
+        >
+          {(group?.members ?? []).map(m => (
+            <View key={m.id} style={s.memberItem}>
+              <View style={[s.memberAvatar, { backgroundColor: avatarColor(m.id) }]}>
+                <Text style={s.memberAvatarText}>{initials(m.nome)}</Text>
+              </View>
+              <Text style={s.memberName} numberOfLines={1}>{m.nome.split(' ')[0]}</Text>
+              {m.role === 'admin' ? (
+                <View style={s.adminDot} />
+              ) : null}
             </View>
           ))}
-          {extraMembers > 0 && (
-            <View style={[styles.memberAvatar, { marginLeft: -10, backgroundColor: colors.border }]}>
-              <Text style={[styles.memberAvatarText, { color: colors.textSecondary }]}>+{extraMembers}</Text>
-            </View>
-          )}
-        </View>
+        </ScrollView>
+      ) : null}
 
-        <View style={styles.actionBtns}>
-          <TouchableOpacity style={styles.inviteBtn} onPress={openInvite}>
-            <Ionicons name="person-add-outline" size={15} color={colors.textPrimary} />
-            <Text style={styles.inviteBtnText}>Convidar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.scheduleBtn} onPress={() => Alert.alert('Em breve', 'Marcar jogo pelo grupo chegará em breve!')}>
-            <Ionicons name="add" size={15} color={colors.textPrimary} />
-            <Text style={styles.scheduleBtnText}>Marcar jogo</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <View style={[s.divider, { backgroundColor: `${accentColor}30` }]} />
 
       {/* Messages */}
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
         <FlatList
           ref={flatRef}
           data={messages}
           keyExtractor={m => m.id}
-          contentContainerStyle={styles.msgList}
+          contentContainerStyle={s.msgList}
           ListEmptyComponent={
-            <View style={styles.emptyChat}>
-              <Text style={styles.emptyChatEmoji}>👋</Text>
-              <Text style={styles.emptyChatTitle}>Ninguém falou ainda</Text>
-              <Text style={styles.emptyChatSub}>Seja o primeiro a mandar uma mensagem!</Text>
+            <View style={s.emptyChat}>
+              <View style={[s.emptyChatIcon, { backgroundColor: `${accentColor}15` }]}>
+                <Ionicons name="chatbubbles-outline" size={32} color={accentColor} />
+              </View>
+              <Text style={s.emptyChatTitle}>Nenhuma mensagem ainda</Text>
+              <Text style={s.emptyChatSub}>Comece a conversa com o grupo!</Text>
             </View>
           }
           renderItem={({ item }) => {
             const isMe = item.user_id === myId
             const senderName = item.user?.nome ?? ''
             return (
-              <View style={[styles.msgRow, isMe && styles.msgRowMe]}>
-                {!isMe && (
-                  <View style={[styles.msgAvatar, { backgroundColor: sportColor }]}>
-                    <Text style={styles.msgAvatarText}>{initials(senderName)}</Text>
+              <View style={[s.msgRow, isMe && s.msgRowMe]}>
+                {!isMe ? (
+                  <View style={[s.msgAvatar, { backgroundColor: avatarColor(item.user_id) }]}>
+                    <Text style={s.msgAvatarText}>{initials(senderName)}</Text>
                   </View>
-                )}
-                <View style={[styles.msgBubble, isMe && styles.msgBubbleMe]}>
-                  {!isMe && <Text style={styles.msgSender}>{senderName}</Text>}
-                  <Text style={[styles.msgText, isMe && styles.msgTextMe]}>{item.content}</Text>
+                ) : null}
+                <View style={[s.msgBubble, isMe && s.msgBubbleMe]}>
+                  {!isMe ? (
+                    <Text style={[s.msgSender, { color: avatarColor(item.user_id) }]}>{senderName.split(' ')[0]}</Text>
+                  ) : null}
+                  <Text style={[s.msgText, isMe && s.msgTextMe]}>{item.content}</Text>
+                  <Text style={[s.msgTime, isMe && s.msgTimeMe]}>{formatTime(item.created_at)}</Text>
                 </View>
               </View>
             )
           }}
         />
 
-        <View style={styles.inputRow}>
+        {/* Input */}
+        <View style={[s.inputRow, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <TextInput
-            style={styles.textInput}
-            placeholder="Mensagem..."
-            placeholderTextColor={colors.textMuted}
+            style={s.textInput}
+            placeholder="Mensagem…"
+            placeholderTextColor={C.inkSoft}
             value={text}
             onChangeText={setText}
             multiline
           />
           <TouchableOpacity
-            style={[styles.sendBtn, (!text.trim() || sending) && { opacity: 0.4 }]}
+            style={[s.sendBtn, { backgroundColor: text.trim() ? accentColor : C.line }]}
             onPress={sendMessage}
             disabled={!text.trim() || sending}
+            activeOpacity={0.85}
           >
-            <Ionicons name="send" size={18} color={colors.textPrimary} />
+            <Ionicons name="arrow-up" size={18} color={text.trim() ? '#fff' : C.inkSoft} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 
       {/* Invite Modal */}
-      <Modal visible={showInvite} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Convidar para o grupo</Text>
-              <TouchableOpacity onPress={() => setShowInvite(false)}>
-                <Ionicons name="close" size={22} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            {loadingInvite ? (
-              <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.xl }} />
-            ) : (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {connections.length > 0 && (
-                  <>
-                    <Text style={styles.inviteSectionLabel}>Suas conexões</Text>
-                    {connections.map((c) => {
-                      const inGroup = alreadyInGroup.has(c.id)
-                      return (
-                        <View key={c.id} style={styles.connRow}>
-                          <View style={[styles.connAvatar, { backgroundColor: sportColor }]}>
-                            <Text style={styles.connAvatarText}>{initials(c.nome)}</Text>
-                          </View>
-                          <View style={styles.connInfo}>
-                            <Text style={styles.connName}>{c.nome}</Text>
-                          </View>
-                          {inGroup ? (
-                            <View style={styles.inGroupBadge}>
-                              <Text style={styles.inGroupText}>No grupo</Text>
-                            </View>
-                          ) : (
-                            <TouchableOpacity
-                              style={styles.addBtn}
-                              onPress={() => inviteUser(c.id)}
-                              disabled={invitingUserId === c.id}
-                            >
-                              {invitingUserId === c.id
-                                ? <ActivityIndicator size="small" color="#fff" />
-                                : <Text style={styles.addBtnText}>Adicionar</Text>}
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      )
-                    })}
-                  </>
-                )}
-                {connections.length === 0 && (
-                  <Text style={styles.emptyConn}>Você ainda não tem conexões. Jogue com alguém para poder convidá-los!</Text>
-                )}
-              </ScrollView>
-            )}
+      <Modal visible={showInvite} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowInvite(false)}>
+        <View style={{ flex: 1, backgroundColor: C.cream }}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>Convidar para o grupo</Text>
+            <TouchableOpacity onPress={() => setShowInvite(false)} hitSlop={12}>
+              <Ionicons name="close" size={22} color={C.inkSoft} />
+            </TouchableOpacity>
           </View>
+
+          {loadingInvite ? (
+            <ActivityIndicator color={C.ink} style={{ marginTop: 48 }} />
+          ) : connections.length === 0 ? (
+            <View style={s.emptyConn}>
+              <Ionicons name="people-outline" size={36} color={C.line} />
+              <Text style={s.emptyConnText}>Jogue com alguém para poder convidá-los!</Text>
+            </View>
+          ) : (
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
+              <Text style={s.inviteSection}>Suas conexões</Text>
+              {connections.map(c => {
+                const inGroup = alreadyInGroup.has(c.id)
+                return (
+                  <View key={c.id} style={s.connRow}>
+                    <View style={[s.connAvatar, { backgroundColor: avatarColor(c.id) }]}>
+                      <Text style={s.connAvatarText}>{initials(c.nome)}</Text>
+                    </View>
+                    <Text style={s.connName}>{c.nome}</Text>
+                    {inGroup ? (
+                      <View style={s.inGroupBadge}>
+                        <Ionicons name="checkmark" size={12} color={C.inkSoft} />
+                        <Text style={s.inGroupText}>No grupo</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={[s.addBtn, { backgroundColor: accentColor }]}
+                        onPress={() => inviteUser(c.id)}
+                        disabled={invitingUserId === c.id}
+                        activeOpacity={0.85}
+                      >
+                        {invitingUserId === c.id
+                          ? <ActivityIndicator size="small" color="#fff" />
+                          : <Text style={s.addBtnText}>Convidar</Text>}
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )
+              })}
+            </ScrollView>
+          )}
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   )
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.cream },
 
   // Header
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md, gap: spacing.sm },
-  backBtn: { width: 34, height: 34, borderRadius: borderRadius.md, backgroundColor: 'rgba(0,0,0,0.2)', alignItems: 'center', justifyContent: 'center' },
-  headerCenter: { flex: 1 },
-  headerSport: { fontSize: fontSize.xs, color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: '700' },
-  headerTitle: { fontSize: fontSize.xl, fontWeight: '800', color: '#fff' },
-  memberCount: { fontSize: fontSize.xs, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: C.line,
+    backgroundColor: C.card,
+  },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.cream, alignItems: 'center', justifyContent: 'center' },
+  sportTag: { alignSelf: 'flex-start', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, marginBottom: 2 },
+  sportTagText: { fontSize: 10, fontFamily: F.bodyBold, letterSpacing: 0.8, textTransform: 'uppercase' },
+  headerTitle: { fontSize: 17, fontFamily: F.headingBold, color: C.ink, letterSpacing: -0.3 },
+  inviteBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 999, borderWidth: 1.5, borderColor: C.line,
+    backgroundColor: C.card,
+  },
+  inviteBtnText: { fontSize: 13, fontFamily: F.bodyBold, color: C.ink },
 
-  // Action bar
-  actionBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
-  avatarRow: { flexDirection: 'row', alignItems: 'center' },
-  memberAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.surface },
-  memberAvatarText: { color: '#fff', fontSize: fontSize.xs, fontWeight: '700' },
-  actionBtns: { flexDirection: 'row', gap: spacing.sm },
-  inviteBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: borderRadius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background },
-  inviteBtnText: { fontSize: fontSize.xs, fontWeight: '700', color: colors.textPrimary },
-  scheduleBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: borderRadius.full, backgroundColor: '#BFFF3C' },
-  scheduleBtnText: { fontSize: fontSize.xs, fontWeight: '700', color: colors.textPrimary },
+  // Members
+  membersScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 16 },
+  memberItem: { alignItems: 'center', gap: 4, width: 52 },
+  memberAvatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  memberAvatarText: { fontSize: 15, fontFamily: F.bodyBold, color: '#fff' },
+  memberName: { fontSize: 11, fontFamily: F.bodySemi, color: C.inkSoft, textAlign: 'center', width: 52 },
+  adminDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#CBF135', position: 'absolute', top: 0, right: 4 },
+
+  divider: { height: 1 },
 
   // Messages
-  msgList: { padding: spacing.md, gap: spacing.sm, flexGrow: 1 },
-  emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 100 },
-  emptyChatEmoji: { fontSize: 40, marginBottom: spacing.md },
-  emptyChatTitle: { fontSize: fontSize.lg, fontWeight: '700', color: colors.textPrimary },
-  emptyChatSub: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.xs },
-  msgRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-end' },
+  msgList: { padding: 16, gap: 10, flexGrow: 1 },
+  emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 10 },
+  emptyChatIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  emptyChatTitle: { fontSize: 17, fontFamily: F.headingBold, color: C.ink },
+  emptyChatSub: { fontSize: 13, fontFamily: F.bodySemi, color: C.inkSoft },
+
+  msgRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
   msgRowMe: { justifyContent: 'flex-end' },
-  msgAvatar: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  msgAvatarText: { color: '#fff', fontSize: fontSize.xs, fontWeight: '700' },
-  msgBubble: { maxWidth: '72%', backgroundColor: colors.surface, borderRadius: borderRadius.lg, borderBottomLeftRadius: 4, padding: spacing.sm, borderWidth: 1, borderColor: colors.border },
-  msgBubbleMe: { backgroundColor: colors.textPrimary, borderBottomLeftRadius: borderRadius.lg, borderBottomRightRadius: 4, borderColor: 'transparent' },
-  msgSender: { fontSize: fontSize.xs, fontWeight: '700', color: colors.primary, marginBottom: 2 },
-  msgText: { fontSize: fontSize.sm, color: colors.textPrimary },
+  msgAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  msgAvatarText: { fontSize: 11, fontFamily: F.bodyBold, color: '#fff' },
+  msgBubble: {
+    maxWidth: '72%', backgroundColor: C.card,
+    borderRadius: 18, borderBottomLeftRadius: 4,
+    padding: 10, paddingHorizontal: 14,
+    borderWidth: 1, borderColor: C.line,
+  },
+  msgBubbleMe: {
+    backgroundColor: C.ink, borderBottomLeftRadius: 18, borderBottomRightRadius: 4,
+    borderColor: 'transparent',
+  },
+  msgSender: { fontSize: 11, fontFamily: F.bodyBold, marginBottom: 3 },
+  msgText: { fontSize: 14, fontFamily: F.bodySemi, color: C.ink, lineHeight: 20 },
   msgTextMe: { color: '#fff' },
+  msgTime: { fontSize: 10, fontFamily: F.body, color: C.inkSoft, marginTop: 4, alignSelf: 'flex-end' },
+  msgTimeMe: { color: 'rgba(255,255,255,0.5)' },
 
   // Input
-  inputRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
-  textInput: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.full, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, fontSize: fontSize.sm, color: colors.textPrimary, maxHeight: 100 },
-  sendBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  inputRow: {
+    flexDirection: 'row', alignItems: 'flex-end', gap: 10,
+    paddingHorizontal: 16, paddingTop: 12,
+    borderTopWidth: 1, borderTopColor: C.line,
+    backgroundColor: C.card,
+  },
+  textInput: {
+    flex: 1, borderWidth: 1.5, borderColor: C.line,
+    borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10,
+    fontSize: 15, fontFamily: F.bodySemi, color: C.ink,
+    backgroundColor: C.cream, maxHeight: 100,
+  },
+  sendBtn: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
 
   // Invite modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  modalCard: { backgroundColor: colors.surface, borderTopLeftRadius: borderRadius.xl, borderTopRightRadius: borderRadius.xl, padding: spacing.lg, maxHeight: '85%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
-  modalTitle: { fontSize: fontSize.xl, fontWeight: '800', color: colors.textPrimary },
-  inviteSectionLabel: { fontSize: fontSize.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginBottom: spacing.sm },
-  codeRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
-  codeBox: { flex: 1, backgroundColor: colors.background, borderRadius: borderRadius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
-  codeText: { fontSize: fontSize.xl, fontWeight: '800', color: colors.textPrimary, letterSpacing: 4 },
-  shareBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.primary, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, borderRadius: borderRadius.md },
-  shareBtnText: { color: '#fff', fontWeight: '700', fontSize: fontSize.sm },
-  codeHint: { fontSize: fontSize.xs, color: colors.textMuted, marginTop: spacing.xs },
-  connRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-  connAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  connAvatarText: { color: '#fff', fontWeight: '700' },
-  connInfo: { flex: 1 },
-  connName: { fontSize: fontSize.sm, fontWeight: '700', color: colors.textPrimary },
-  connSport: { fontSize: fontSize.xs, color: colors.textSecondary },
-  inGroupBadge: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: borderRadius.full, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
-  inGroupText: { fontSize: fontSize.xs, color: colors.textMuted },
-  addBtn: { paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: borderRadius.md, backgroundColor: colors.primary },
-  addBtnText: { color: '#fff', fontWeight: '700', fontSize: fontSize.xs },
-  emptyConn: { textAlign: 'center', color: colors.textMuted, fontSize: fontSize.sm, marginTop: spacing.md },
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: 20, borderBottomWidth: 1, borderBottomColor: C.line,
+  },
+  modalTitle: { fontFamily: F.headingBold, fontSize: 20, color: C.ink, letterSpacing: -0.3 },
+  inviteSection: { fontSize: 11, fontFamily: F.bodyBold, color: C.inkSoft, textTransform: 'uppercase', letterSpacing: 1.5, marginTop: 16, marginBottom: 8 },
+  connRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line,
+  },
+  connAvatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  connAvatarText: { fontSize: 15, fontFamily: F.bodyBold, color: '#fff' },
+  connName: { flex: 1, fontSize: 15, fontFamily: F.bodyBold, color: C.ink },
+  inGroupBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: C.cream, borderWidth: 1, borderColor: C.line },
+  inGroupText: { fontSize: 12, fontFamily: F.bodySemi, color: C.inkSoft },
+  addBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999 },
+  addBtnText: { fontSize: 13, fontFamily: F.bodyBold, color: '#fff' },
+  emptyConn: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 40 },
+  emptyConnText: { fontSize: 14, fontFamily: F.bodySemi, color: C.inkSoft, textAlign: 'center' },
 })
