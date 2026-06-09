@@ -6,7 +6,7 @@ module.exports = (sequelize, DataTypes) => {
     rated_user_id: { type: DataTypes.UUID, allowNull: false },
     score:         { type: DataTypes.SMALLINT, allowNull: false },
     badges:        { type: DataTypes.JSONB, defaultValue: [] },
-  }, { tableName: 'app_game_rating', timestamps: true, underscored: true });
+  }, { tableName: 'app_game_rating', timestamps: true, underscored: true, paranoid: false });
 
   GameRating.associate = (m) => {
     GameRating.belongsTo(m.Jogo, { foreignKey: 'jogo_id', as: 'jogo' });
