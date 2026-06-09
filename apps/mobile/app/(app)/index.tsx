@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useAuth } from '../../lib/auth-context'
-import { apiGet, apiPost } from '../../lib/api'
+import { apiGet } from '../../lib/api'
 import { Screen, colors as C, fonts as F } from '../../components/ui'
 import { useToast } from '../../components/Toast'
 import { sportColors, sportLabels } from '@racket-app/ui'
@@ -114,12 +114,6 @@ const PT_WEEKDAY_SHORT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
 const PT_MONTH_LONG = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 const PT_MONTH_SHORT = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']
 
-function greeting() {
-  const h = new Date().getHours()
-  if (h < 12) return 'Bom dia'
-  if (h < 18) return 'Boa tarde'
-  return 'Boa noite'
-}
 
 const SPORT_EMOJIS: Record<string, string> = {
   padel: '🎾', beach_tennis: '🏖️', tennis: '🎾',
@@ -145,11 +139,9 @@ function formatTime(dt: string) {
   return new Date(dt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
-function GameCard({ g, onJoin, onView, isOwn }: {
+function GameCard({ g, onView }: {
   g: Game
-  onJoin: () => void
   onView: () => void
-  isOwn: boolean
 }) {
   const color = sportColors[g.sport as keyof typeof sportColors] ?? '#888'
   const label = sportLabels[g.sport as keyof typeof sportLabels] ?? g.sport
@@ -200,39 +192,28 @@ function GameCard({ g, onJoin, onView, isOwn }: {
         <Text style={s.cardDateText}> · {formatDay(g.scheduled_at)}</Text>
       </View>
 
-      {/* quadra + reservada */}
+      {/* quadra + reservada + avatares na mesma linha */}
       <View style={s.cardVenueRow}>
-        {g.venue_nome ? (
-          <Text style={s.cardVenueText} numberOfLines={1}>{g.venue_nome}</Text>
-        ) : !g.court_reserved ? (
-          <Text style={s.cardVenueText}>Quadra a definir</Text>
-        ) : null}
-        {g.court_reserved ? (
-          <View style={s.reservedBadge}>
-            <Ionicons name="checkmark-circle" size={11} color="#2E7D6E" />
-            <Text style={s.reservedText}>Reservada</Text>
-            {g.court_price_per_person ? (
-              <Text style={s.priceText}>
-                · R$ {g.court_price_per_person.toFixed(2).replace('.', ',')}/pessoa
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
-      </View>
-
-      {/* linha inferior: só renderiza se há participantes reais ou botão entrar */}
-      {((g.participants ?? []).length > 0 || (!isOwn && !isFull)) ? (
-        <View style={s.cardBottom}>
-          {!isOwn && !isFull ? (
-            <TouchableOpacity
-              onPress={e => { e.stopPropagation?.(); onJoin() }}
-              activeOpacity={0.85}
-              style={s.joinBtn}
-            >
-              <Text style={s.joinBtnText}>Entrar</Text>
-            </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          {g.venue_nome ? (
+            <Text style={s.cardVenueText} numberOfLines={1}>{g.venue_nome}</Text>
+          ) : !g.court_reserved ? (
+            <Text style={s.cardVenueText}>Quadra a definir</Text>
           ) : null}
+          {g.court_reserved ? (
+            <View style={s.reservedBadge}>
+              <Ionicons name="checkmark-circle" size={11} color="#2E7D6E" />
+              <Text style={s.reservedText}>Reservada</Text>
+              {g.court_price_per_person ? (
+                <Text style={s.priceText}>
+                  · R$ {g.court_price_per_person.toFixed(2).replace('.', ',')}/pessoa
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
 
+        {(g.participants ?? []).length > 0 ? (
           <View style={s.avatarStack}>
             {(g.participants ?? []).slice(0, 5).map((p, i) => (
               p.avatar_url ? (
@@ -248,15 +229,15 @@ function GameCard({ g, onJoin, onView, isOwn }: {
               )
             ))}
           </View>
-        </View>
-      ) : null}
+        ) : null}
+      </View>
       </View>
     </TouchableOpacity>
   )
 }
 
 export default function DescobrirScreen() {
-  const { user } = useAuth()
+  useAuth()
   const router = useRouter()
   const [allGames, setAllGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
@@ -265,12 +246,10 @@ export default function DescobrirScreen() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [datePickerOpen, setDatePickerOpen] = useState(false)
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d })
-  const [joiningId, setJoiningId] = useState<string | null>(null)
   const [cidadeId, setCidadeId] = useState<string | null>(null)
   const [cidadeNome, setCidadeNome] = useState<string>('')
   const [cidades, setCidades] = useState<Cidade[]>([])
   const [cidadeModal, setCidadeModal] = useState(false)
-  const [mySports, setMySports] = useState<string[]>([])
   const [advFilters, setAdvFilters] = useState<AdvFilters>(DEFAULT_FILTERS)
   const [filterModal, setFilterModal] = useState(false)
 
@@ -283,9 +262,6 @@ export default function DescobrirScreen() {
           .then(me => { if (me.cidade_id) setCidadeId(me.cidade_id) })
           .catch(() => {})
       )
-    apiGet<{ sport: string }[]>('/me/sport-profiles')
-      .then(profiles => setMySports(profiles.map(p => p.sport)))
-      .catch(() => {})
   }, [])
 
   const load = useCallback(async () => {
@@ -322,36 +298,8 @@ export default function DescobrirScreen() {
     tennis: allGames.filter(g => g.sport === 'tennis').length,
   }
 
-  async function joinGame(id: string) {
-    const game = allGames.find((g: Game) => g.id === id)
-    if (game && !mySports.includes(game.sport)) {
-      const sportLabel = sportLabels[game.sport as keyof typeof sportLabels] ?? game.sport
-      showConfirm({
-        title: 'Esporte não está no seu perfil',
-        message: `Você não tem ${sportLabel} cadastrado no seu perfil. Quer cadastrar agora?`,
-        confirmLabel: 'Cadastrar Esporte',
-        onConfirm: () => router.push(`/(app)/perfil?sport=${game.sport}` as never),
-      })
-      return
-    }
-    setJoiningId(id)
-    try {
-      await apiPost(`/jogos/${id}/join`)
-      showToast({ type: 'success', title: 'Você entrou no jogo!' })
-      load()
-    } catch (e: unknown) {
-      showToast({ type: 'error', title: (e as { message?: string }).message ?? 'Erro ao entrar' })
-    } finally {
-      setJoiningId(null)
-    }
-  }
 
-  const { showToast, showConfirm } = useToast()
-  const totalOpenSpots = allGames.reduce((acc, g) => acc + g.open_spots, 0)
-  const todayGames = allGames.filter(g => {
-    const d = new Date(g.scheduled_at); const t = new Date()
-    return d.toDateString() === t.toDateString()
-  })
+  useToast()
   const activeSportLabel = FILTERS.find(f => f.key === sportFilter)?.label ?? ''
 
   return (
@@ -461,7 +409,17 @@ export default function DescobrirScreen() {
             allGames.length === 0 ? (
               /* Nenhum jogo na cidade */
               <View style={s.emptyWrap}>
-                <Text style={s.emptyEmojis}>🎾 🏖️ 🏸</Text>
+                <View style={s.emptyIconsRow}>
+                  <View style={[s.emptyIconCircle, { backgroundColor: `${sportColors.padel}18` }]}>
+                    <Ionicons name="tennisball" size={28} color={sportColors.padel} />
+                  </View>
+                  <View style={[s.emptyIconCircle, s.emptyIconCircleLarge, { backgroundColor: `${sportColors.beach_tennis}18` }]}>
+                    <Ionicons name="tennisball" size={36} color={sportColors.beach_tennis} />
+                  </View>
+                  <View style={[s.emptyIconCircle, { backgroundColor: `${sportColors.tennis}18` }]}>
+                    <Ionicons name="tennisball" size={28} color={sportColors.tennis} />
+                  </View>
+                </View>
                 <Text style={s.emptyTitle}>Nenhum jogo em {cidadeNome || 'sua cidade'}</Text>
                 <Text style={s.emptySub}>
                   Seja o pioneiro! Crie o primeiro jogo e convide seus parceiros.
@@ -494,9 +452,7 @@ export default function DescobrirScreen() {
                 <GameCard
                   key={g.id}
                   g={g}
-                  isOwn={g.creator_id === user?.id}
                   onView={() => router.push(`/(app)/jogo/${g.id}` as never)}
-                  onJoin={() => joiningId === null ? joinGame(g.id) : undefined}
                 />
               ))}
 
@@ -878,13 +834,13 @@ const s = StyleSheet.create({
   cardTime: { fontFamily: F.headingBold, fontSize: 24, color: C.ink, letterSpacing: -0.5 },
   cardDateText: { fontSize: 14, color: C.inkSoft, fontFamily: F.bodySemi },
 
-  cardVenueRow: { gap: 4, marginBottom: 8 },
+  cardVenueRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   cardVenueText: { fontSize: 15, color: C.inkSoft, fontFamily: F.bodySemi },
   reservedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   reservedText: { fontSize: 14, fontFamily: F.bodyBold, color: '#2E7D6E' },
   priceText: { fontSize: 11, fontFamily: F.bodySemi, color: '#2E7D6E' },
 
-  cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
+  cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 10 },
   avatarStack: { flexDirection: 'row', alignItems: 'center' },
   miniAvatar: {
     width: 30, height: 30, borderRadius: 15,
@@ -913,6 +869,12 @@ const s = StyleSheet.create({
   // Empty state
   emptyWrap: { alignItems: 'center', paddingTop: 48, paddingHorizontal: 32, gap: 10 },
   emptyEmojis: { fontSize: 40, letterSpacing: 8, marginBottom: 4 },
+  emptyIconsRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: 8 },
+  emptyIconCircle: {
+    width: 60, height: 60, borderRadius: 30,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  emptyIconCircleLarge: { width: 76, height: 76, borderRadius: 38 },
   emptyTitle: { fontFamily: F.headingBold, fontSize: 20, color: C.ink, textAlign: 'center', letterSpacing: -0.3 },
   emptySub: { fontSize: 14, color: C.inkSoft, fontFamily: F.body, textAlign: 'center', lineHeight: 20, marginBottom: 8 },
   emptyPrimaryBtn: {
