@@ -31,6 +31,8 @@ RUN apk add --no-cache tini curl \
 
 COPY --from=builder --chown=app:app /app /app
 
+RUN mkdir -p /app/uploads/avatars && chown -R app:app /app/uploads
+
 USER app
 EXPOSE 3000
 
