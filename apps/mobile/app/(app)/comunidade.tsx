@@ -1,31 +1,35 @@
 import { useEffect, useState, useCallback } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, Alert } from 'react-native'
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  ActivityIndicator, Modal, TextInput,
+} from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useAuth } from '../../lib/auth-context'
 import { apiGet, apiPost } from '../../lib/api'
-import { Btn, Pill, Avatar, Screen, colors as C, fonts as F } from '../../components/ui'
+import { Screen, Avatar, colors as C, fonts as F } from '../../components/ui'
 import { sportColors, sportLabels } from '@racket-app/ui'
+import { useToast } from '../../components/Toast'
 
 type Group = {
   id: string; nome: string; sport: string | null
   member_count: number; is_admin: boolean
   last_message: string | null; last_message_at: string | null
 }
-type SportProfile = {
-  sport: string
-  category: string | null
-  skill_level: string | null
-}
+type SportProfile = { sport: string; category: string | null; skill_level: string | null }
 type ApiConnection = {
-  id: string
-  nome: string
-  avatar_url: string | null
+  id: string; nome: string; avatar_url: string | null
   sport_profiles?: SportProfile[]
 }
 type Invite = {
   id: string; group_id: string; group_name: string; group_sport: string | null
   inviter_name: string; member_count: number; created_at: string
+}
+
+const AVATAR_COLORS = ['#2E6F9E','#D4880A','#B03A2E','#5B7A4C','#8A5A9E','#C2607F','#3A7A6E','#A0622A']
+function avatarColor(id: string) {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % AVATAR_COLORS.length
+  return AVATAR_COLORS[h]
 }
 
 function timeAgo(dt: string) {
@@ -36,36 +40,9 @@ function timeAgo(dt: string) {
   return new Date(dt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 }
 
-function ConnRow({ c, isFav }: { c: ApiConnection; isFav: boolean }) {
-  return (
-    <View style={s.connCard}>
-      <Avatar name={c.nome} size={42} uri={c.avatar_url} />
-      <View style={{ flex: 1 }}>
-        <Text style={s.connName}>{c.nome}</Text>
-        {c.sport_profiles && c.sport_profiles.length > 0 ? (
-          <View style={s.sportTagsRow}>
-            {c.sport_profiles.map((sp, i) => {
-              const color = sportColors[sp.sport as keyof typeof sportColors] ?? C.inkSoft
-              const detail = sp.category ? ` · Cat. ${sp.category}` : sp.skill_level ? ` · ${sp.skill_level}` : ''
-              return (
-                <View key={i} style={[s.sportTag, { backgroundColor: `${color}1A` }]}>
-                  <Text style={[s.sportTagText, { color }]}>
-                    {sportLabels[sp.sport as keyof typeof sportLabels] ?? sp.sport}{detail}
-                  </Text>
-                </View>
-              )
-            })}
-          </View>
-        ) : null}
-      </View>
-      <Ionicons name={isFav ? 'star' : 'star-outline'} size={18} color={isFav ? C.lime : C.inkSoft} />
-    </View>
-  )
-}
-
 export default function ComunidadeScreen() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { showToast } = useToast()
 
   const [tab, setTab] = useState<'grupos' | 'conexoes' | 'convites'>('grupos')
   const [groups, setGroups] = useState<Group[]>([])
@@ -102,7 +79,7 @@ export default function ComunidadeScreen() {
     if (tab === 'grupos') loadGroups()
     else if (tab === 'conexoes') loadConnections()
     else loadInvites()
-  }, [tab, loadGroups, loadConnections, loadInvites])
+  }, [tab])
 
   async function createGroup() {
     if (!newName.trim()) return
@@ -111,8 +88,9 @@ export default function ComunidadeScreen() {
       const g = await apiPost<Group>('/community/groups', { nome: newName.trim(), sport: newSport })
       setGroups(prev => [g, ...prev])
       setShowCreate(false); setNewName(''); setNewSport(null)
-    } catch (e: any) {
-      Alert.alert('Erro', e.message ?? 'Erro ao criar grupo')
+      showToast({ type: 'success', title: 'Grupo criado!' })
+    } catch (e: unknown) {
+      showToast({ type: 'error', title: (e as { message?: string }).message ?? 'Erro ao criar grupo' })
     } finally { setCreating(false) }
   }
 
@@ -121,8 +99,9 @@ export default function ComunidadeScreen() {
       await apiPost(`/community/invites/${id}/accept`)
       setInvites(prev => prev.filter(i => i.id !== id))
       loadGroups()
-    } catch (e: any) {
-      Alert.alert('Erro', e.message ?? 'Erro ao aceitar')
+      showToast({ type: 'success', title: 'Você entrou no grupo!' })
+    } catch (e: unknown) {
+      showToast({ type: 'error', title: (e as { message?: string }).message ?? 'Erro' })
     }
   }
 
@@ -137,119 +116,178 @@ export default function ComunidadeScreen() {
 
   return (
     <Screen>
-      <View style={s.headerWrap}>
+      {/* Header */}
+      <View style={s.header}>
         <Text style={s.title}>Comunidade</Text>
-        <Text style={s.subtitle}>Conectar pessoas é o nosso propósito</Text>
+        {tab === 'grupos' ? (
+          <TouchableOpacity onPress={() => setShowCreate(true)} style={s.addBtn} activeOpacity={0.85}>
+            <Ionicons name="add" size={20} color={C.ink} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
 
-        <View style={s.tabRow}>
-          <Pill label="Grupos" active={tab === 'grupos'} onPress={() => setTab('grupos')} count={groups.length} />
-          <Pill label="Conexões" active={tab === 'conexoes'} onPress={() => setTab('conexoes')} count={totalConnections} />
-          <Pill label="Convites" active={tab === 'convites'} onPress={() => setTab('convites')} count={invites.length} />
-        </View>
+      {/* Tabs */}
+      <View style={s.tabBar}>
+        {([
+          ['grupos', 'Grupos', groups.length],
+          ['conexoes', 'Conexões', totalConnections],
+          ['convites', 'Convites', invites.length],
+        ] as const).map(([key, label, count]) => (
+          <TouchableOpacity key={key} onPress={() => setTab(key)} style={s.tabItem} activeOpacity={0.7}>
+            <Text style={[s.tabText, tab === key && s.tabTextActive]}>
+              {label}{count > 0 ? ` ${count}` : ''}
+            </Text>
+            {tab === key ? <View style={s.tabUnderline} /> : null}
+          </TouchableOpacity>
+        ))}
       </View>
 
       {loading ? (
-        <ActivityIndicator color={C.ink} style={{ marginTop: 32 }} />
+        <ActivityIndicator color={C.ink} style={{ marginTop: 40 }} />
       ) : tab === 'grupos' ? (
         <ScrollView contentContainerStyle={s.scroll}>
-          {/* Torneios — em breve */}
-          <View style={s.torneioBanner}>
-            <View style={s.torneioBannerLeft}>
-              <View style={s.torneioIconWrap}>
-                <Ionicons name="trophy" size={20} color="#D4880A" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.torneioTitle}>Torneios</Text>
-                <Text style={s.torneioSub}>Campeonatos e ranqueadas — em breve</Text>
-              </View>
+          {groups.length === 0 ? (
+            <View style={s.empty}>
+              <Ionicons name="people-outline" size={40} color={C.line} />
+              <Text style={s.emptyTitle}>Nenhum grupo ainda</Text>
+              <Text style={s.emptySub}>Crie um grupo para jogar com seus parceiros</Text>
+              <TouchableOpacity onPress={() => setShowCreate(true)} style={s.emptyBtn} activeOpacity={0.85}>
+                <Ionicons name="add" size={15} color={C.ink} />
+                <Text style={s.emptyBtnText}>Criar grupo</Text>
+              </TouchableOpacity>
             </View>
-            <View style={s.torneioBadge}>
-              <Text style={s.torneioBadgeText}>Em breve</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity onPress={() => setShowCreate(true)} activeOpacity={0.85} style={s.createRow}>
-            <View style={s.createIcon}>
-              <Ionicons name="add" size={20} color={C.ink} />
-            </View>
-            <Text style={s.createText}>Criar novo grupo</Text>
-          </TouchableOpacity>
-
-          {groups.map(g => {
-            const color = g.sport ? sportColors[g.sport as keyof typeof sportColors] : C.inkSoft
-            return (
-              <TouchableOpacity
-                key={g.id}
-                onPress={() => router.push({ pathname: '/group/[id]', params: { id: g.id } } as never)}
-                activeOpacity={0.85}
-                style={s.groupCard}
-              >
-                <View style={[s.groupAvatar, { backgroundColor: `${color}22` }]}>
-                  <Ionicons name="people" size={20} color={color} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={s.groupName}>{g.nome}</Text>
-                    {g.is_admin ? (
-                      <View style={s.adminBadge}>
-                        <Text style={s.adminText}>Admin</Text>
-                      </View>
+          ) : (
+            groups.map(g => {
+              const color = g.sport ? (sportColors[g.sport as keyof typeof sportColors] ?? C.inkSoft) : C.inkSoft
+              return (
+                <TouchableOpacity
+                  key={g.id}
+                  onPress={() => router.push({ pathname: '/group/[id]', params: { id: g.id } } as never)}
+                  activeOpacity={0.85}
+                  style={s.groupCard}
+                >
+                  <View style={[s.groupAvatar, { backgroundColor: `${color}20` }]}>
+                    <Ionicons name="people" size={22} color={color} />
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                      <Text style={s.groupName}>{g.nome}</Text>
+                      {g.is_admin ? <View style={s.adminBadge}><Text style={s.adminText}>Admin</Text></View> : null}
+                    </View>
+                    <Text style={s.groupMeta}>
+                      {g.member_count} {g.member_count === 1 ? 'membro' : 'membros'}
+                      {g.sport ? ` · ${sportLabels[g.sport as keyof typeof sportLabels] ?? g.sport}` : ''}
+                    </Text>
+                    {g.last_message ? (
+                      <Text style={s.groupPreview} numberOfLines={1}>
+                        {g.last_message}
+                      </Text>
                     ) : null}
                   </View>
-                  <Text style={s.groupMeta}>
-                    {g.member_count} {g.member_count === 1 ? 'membro' : 'membros'}
-                    {g.sport ? ` · ${sportLabels[g.sport as keyof typeof sportLabels] ?? g.sport}` : ''}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={C.inkSoft} />
-              </TouchableOpacity>
-            )
-          })}
-
-          {groups.length === 0 ? (
-            <Text style={s.empty}>Você não participa de nenhum grupo ainda.</Text>
-          ) : null}
+                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                    {g.last_message_at ? <Text style={s.groupTime}>{timeAgo(g.last_message_at)}</Text> : null}
+                    <Ionicons name="chevron-forward" size={14} color={C.line} />
+                  </View>
+                </TouchableOpacity>
+              )
+            })
+          )}
         </ScrollView>
       ) : tab === 'conexoes' ? (
         <ScrollView contentContainerStyle={s.scroll}>
-          {connections.favorites.length > 0 ? (
-            <>
-              <Text style={s.sectionLabel}>⭐  FAVORITOS</Text>
-              {connections.favorites.map(c => <ConnRow key={c.id} c={c} isFav />)}
-            </>
-          ) : null}
-          {connections.recent.length > 0 ? (
-            <>
-              <Text style={s.sectionLabel}>🔗  COM QUEM VOCÊ JOGOU</Text>
-              {connections.recent.map(c => <ConnRow key={c.id} c={c} isFav={false} />)}
-            </>
-          ) : null}
           {totalConnections === 0 ? (
-            <Text style={s.empty}>Suas conexões aparecerão aqui depois de jogar com alguém.</Text>
-          ) : null}
+            <View style={s.empty}>
+              <Ionicons name="person-outline" size={40} color={C.line} />
+              <Text style={s.emptyTitle}>Sem conexões ainda</Text>
+              <Text style={s.emptySub}>Jogue com alguém para criar conexões</Text>
+            </View>
+          ) : (
+            <>
+              {connections.favorites.length > 0 ? (
+                <>
+                  <Text style={s.sectionLabel}>Favoritos</Text>
+                  {connections.favorites.map(c => (
+                    <View key={c.id} style={s.connRow}>
+                      <Avatar name={c.nome} size={44} uri={c.avatar_url} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.connName}>{c.nome}</Text>
+                        {c.sport_profiles && c.sport_profiles.length > 0 ? (
+                          <View style={s.sportTagsRow}>
+                            {c.sport_profiles.map((sp, i) => {
+                              const color = sportColors[sp.sport as keyof typeof sportColors] ?? C.inkSoft
+                              return (
+                                <View key={i} style={[s.sportTag, { backgroundColor: `${color}18` }]}>
+                                  <Text style={[s.sportTagText, { color }]}>
+                                    {sportLabels[sp.sport as keyof typeof sportLabels] ?? sp.sport}
+                                    {sp.category ? ` · Cat. ${sp.category}` : ''}
+                                  </Text>
+                                </View>
+                              )
+                            })}
+                          </View>
+                        ) : null}
+                      </View>
+                      <Ionicons name="star" size={16} color={C.lime} />
+                    </View>
+                  ))}
+                </>
+              ) : null}
+              {connections.recent.length > 0 ? (
+                <>
+                  <Text style={s.sectionLabel}>Jogaram com você</Text>
+                  {connections.recent.map(c => (
+                    <View key={c.id} style={s.connRow}>
+                      <Avatar name={c.nome} size={44} uri={c.avatar_url} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.connName}>{c.nome}</Text>
+                        {c.sport_profiles && c.sport_profiles.length > 0 ? (
+                          <View style={s.sportTagsRow}>
+                            {c.sport_profiles.map((sp, i) => {
+                              const color = sportColors[sp.sport as keyof typeof sportColors] ?? C.inkSoft
+                              return (
+                                <View key={i} style={[s.sportTag, { backgroundColor: `${color}18` }]}>
+                                  <Text style={[s.sportTagText, { color }]}>
+                                    {sportLabels[sp.sport as keyof typeof sportLabels] ?? sp.sport}
+                                  </Text>
+                                </View>
+                              )
+                            })}
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                  ))}
+                </>
+              ) : null}
+            </>
+          )}
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={s.scroll}>
           {invites.length === 0 ? (
-            <Text style={s.empty}>Sem convites pendentes</Text>
+            <View style={s.empty}>
+              <Ionicons name="mail-outline" size={40} color={C.line} />
+              <Text style={s.emptyTitle}>Sem convites</Text>
+              <Text style={s.emptySub}>Convites de grupos aparecerão aqui</Text>
+            </View>
           ) : (
             invites.map(inv => {
-              const color = inv.group_sport ? sportColors[inv.group_sport as keyof typeof sportColors] : C.inkSoft
+              const color = inv.group_sport ? (sportColors[inv.group_sport as keyof typeof sportColors] ?? C.inkSoft) : C.inkSoft
               return (
                 <View key={inv.id} style={s.inviteCard}>
-                  <View style={[s.groupAvatar, { backgroundColor: `${color}22` }]}>
-                    <Ionicons name="people" size={20} color={color} />
+                  <View style={[s.groupAvatar, { backgroundColor: `${color}20` }]}>
+                    <Ionicons name="people" size={22} color={color} />
                   </View>
-                  <View style={{ flex: 1, gap: 4 }}>
+                  <View style={{ flex: 1, gap: 3 }}>
                     <Text style={s.groupName}>{inv.group_name}</Text>
-                    <Text style={s.inviteMeta}>
-                      Convite de {inv.inviter_name} · {inv.member_count} membros · {timeAgo(inv.created_at)}
+                    <Text style={s.groupMeta}>
+                      {inv.member_count} membros · Convite de {inv.inviter_name}
                     </Text>
-                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-                      <TouchableOpacity onPress={() => acceptInvite(inv.id)} style={s.acceptBtn}>
+                    <View style={s.inviteActions}>
+                      <TouchableOpacity onPress={() => acceptInvite(inv.id)} style={s.acceptBtn} activeOpacity={0.85}>
                         <Text style={s.acceptBtnText}>Aceitar</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => declineInvite(inv.id)} style={s.declineBtn}>
+                      <TouchableOpacity onPress={() => declineInvite(inv.id)} style={s.declineBtn} activeOpacity={0.8}>
                         <Text style={s.declineBtnText}>Recusar</Text>
                       </TouchableOpacity>
                     </View>
@@ -262,44 +300,48 @@ export default function ComunidadeScreen() {
       )}
 
       {/* Create group modal */}
-      <Modal visible={showCreate} animationType="slide" transparent onRequestClose={() => setShowCreate(false)}>
-        <View style={s.modalOverlay}>
-          <View style={s.modalSheet}>
+      <Modal visible={showCreate} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCreate(false)}>
+        <View style={{ flex: 1, backgroundColor: C.cream }}>
+          <View style={s.modalHeader}>
             <Text style={s.modalTitle}>Novo grupo</Text>
+            <TouchableOpacity onPress={() => { setShowCreate(false); setNewName(''); setNewSport(null) }} hitSlop={12}>
+              <Ionicons name="close" size={22} color={C.inkSoft} />
+            </TouchableOpacity>
+          </View>
+          <View style={{ padding: 20, gap: 16 }}>
             <TextInput
               style={s.modalInput}
               placeholder="Nome do grupo"
               placeholderTextColor={C.inkSoft}
               value={newName}
               onChangeText={setNewName}
+              autoFocus
             />
-            <Text style={s.modalSubLabel}>Esporte (opcional)</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-              {(['padel', 'beach_tennis', 'tennis'] as const).map(sp => (
-                <TouchableOpacity
-                  key={sp}
-                  onPress={() => setNewSport(newSport === sp ? null : sp)}
-                  activeOpacity={0.85}
-                  style={[
-                    s.sportChipModal,
-                    newSport === sp ? { backgroundColor: sportColors[sp], borderColor: sportColors[sp] } : null,
-                  ]}
-                >
-                  <Text style={{
-                    fontFamily: F.bodyBold, fontSize: 13,
-                    color: newSport === sp ? '#fff' : C.inkSoft,
-                  }}>{sportLabels[sp]}</Text>
-                </TouchableOpacity>
-              ))}
+            <View>
+              <Text style={s.modalSubLabel}>Esporte (opcional)</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                {(['padel', 'beach_tennis', 'tennis'] as const).map(sp => (
+                  <TouchableOpacity
+                    key={sp}
+                    onPress={() => setNewSport(newSport === sp ? null : sp)}
+                    activeOpacity={0.85}
+                    style={[s.sportChip, newSport === sp && { backgroundColor: sportColors[sp], borderColor: sportColors[sp] }]}
+                  >
+                    <Text style={[s.sportChipText, newSport === sp && { color: '#fff' }]}>
+                      {sportLabels[sp]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Btn variant="ghost" onPress={() => { setShowCreate(false); setNewName(''); setNewSport(null) }} fullWidth>
-                Cancelar
-              </Btn>
-              <Btn onPress={createGroup} disabled={!newName.trim() || creating} fullWidth>
-                {creating ? 'Criando…' : 'Criar grupo'}
-              </Btn>
-            </View>
+            <TouchableOpacity
+              onPress={createGroup}
+              disabled={!newName.trim() || creating}
+              style={[s.createGroupBtn, (!newName.trim() || creating) && { opacity: 0.5 }]}
+              activeOpacity={0.85}
+            >
+              <Text style={s.createGroupBtnText}>{creating ? 'Criando…' : 'Criar grupo'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -308,93 +350,81 @@ export default function ComunidadeScreen() {
 }
 
 const s = StyleSheet.create({
-  headerWrap: { padding: 20, paddingBottom: 4 },
-  eyebrow: { fontSize: 11, fontFamily: F.bodyBold, color: C.inkSoft, letterSpacing: 3 },
-  title: { fontFamily: F.headingBold, fontSize: 26, color: C.ink, letterSpacing: -0.5, marginTop: 2 },
-  subtitle: { fontSize: 13, color: C.inkSoft, fontFamily: F.body, marginTop: 2 },
-  tabRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
-
-  scroll: { padding: 16, gap: 8 },
-
-  torneioBanner: {
+  header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: 14, borderRadius: 18, marginBottom: 8,
-    backgroundColor: '#FFF9EC', borderWidth: 1.5, borderColor: '#F5E0A0',
+    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4,
   },
-  torneioBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  torneioIconWrap: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: 'rgba(212,136,10,0.15)', alignItems: 'center', justifyContent: 'center',
-  },
-  torneioTitle: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
-  torneioSub: { fontSize: 12, color: C.inkSoft, fontFamily: F.body, marginTop: 2 },
-  torneioBadge: {
-    backgroundColor: 'rgba(212,136,10,0.15)', borderRadius: 999,
-    paddingHorizontal: 10, paddingVertical: 4,
-  },
-  torneioBadgeText: { fontSize: 11, fontFamily: F.bodyBold, color: '#D4880A' },
-
-  createRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
-    backgroundColor: C.card, borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.line,
-    borderRadius: 18, marginBottom: 8,
-  },
-  createIcon: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: C.lime,
+  title: { fontFamily: F.headingBold, fontSize: 26, color: C.ink, letterSpacing: -0.5 },
+  addBtn: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: C.lime,
     alignItems: 'center', justifyContent: 'center',
   },
-  createText: { fontSize: 15, fontFamily: F.bodyBold, color: C.ink },
 
+  // Tabs
+  tabBar: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 16, borderBottomWidth: 1, borderBottomColor: C.line },
+  tabItem: { marginRight: 24, paddingBottom: 10, position: 'relative' },
+  tabText: { fontSize: 15, fontFamily: F.bodyBold, color: C.inkSoft },
+  tabTextActive: { color: C.ink },
+  tabUnderline: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, backgroundColor: C.ink, borderRadius: 999 },
+
+  scroll: { padding: 16, gap: 8, paddingBottom: 32 },
+
+  // Empty
+  empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 8 },
+  emptyTitle: { fontSize: 16, fontFamily: F.bodyBold, color: C.ink },
+  emptySub: { fontSize: 13, fontFamily: F.bodySemi, color: C.inkSoft, textAlign: 'center' },
+  emptyBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8,
+    backgroundColor: C.lime, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999,
+  },
+  emptyBtnText: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
+
+  // Groups
   groupCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
-    backgroundColor: C.card, borderRadius: 18, borderWidth: 1.5, borderColor: C.line,
-    marginBottom: 8,
+    backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.line,
   },
-  groupAvatar: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+  groupAvatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   groupName: { fontSize: 15, fontFamily: F.bodyBold, color: C.ink },
-  groupMeta: { fontSize: 12, color: C.inkSoft, fontFamily: F.body, marginTop: 3 },
-  adminBadge: { backgroundColor: C.lime, borderRadius: 4, paddingHorizontal: 7, paddingVertical: 2 },
+  groupMeta: { fontSize: 12, color: C.inkSoft, fontFamily: F.bodySemi },
+  groupPreview: { fontSize: 12, color: C.inkSoft, fontFamily: F.body, marginTop: 2 },
+  groupTime: { fontSize: 11, color: C.inkSoft, fontFamily: F.body },
+  adminBadge: { backgroundColor: `${C.lime}60`, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
   adminText: { fontSize: 10, fontFamily: F.bodyBold, color: C.ink },
 
-  sectionLabel: {
-    fontSize: 11, fontFamily: F.bodyBold, color: C.inkSoft, letterSpacing: 2,
-    marginTop: 12, marginBottom: 4,
-  },
-  connCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
-    backgroundColor: C.card, borderRadius: 18, borderWidth: 1.5, borderColor: C.line,
-    marginBottom: 8,
-  },
-  connName: { fontSize: 14, fontFamily: F.bodyBold, color: C.ink },
+  // Connections
+  sectionLabel: { fontSize: 12, fontFamily: F.bodyBold, color: C.inkSoft, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 4, marginBottom: 2 },
+  connRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.line },
+  connName: { fontSize: 15, fontFamily: F.bodyBold, color: C.ink },
   sportTagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
-  sportTag: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999 },
+  sportTag: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999 },
   sportTagText: { fontSize: 11, fontFamily: F.bodyBold },
 
+  // Invites
   inviteCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 14,
-    backgroundColor: C.card, borderRadius: 18, borderWidth: 1.5, borderColor: C.line,
-    marginBottom: 8,
+    backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.line,
   },
-  inviteMeta: { fontSize: 12, color: C.inkSoft, fontFamily: F.body },
-  acceptBtn: { backgroundColor: C.lime, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999 },
+  inviteActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  acceptBtn: { backgroundColor: C.lime, paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999 },
   acceptBtnText: { fontSize: 13, fontFamily: F.bodyBold, color: C.ink },
-  declineBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: C.line },
+  declineBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: C.line },
   declineBtnText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
 
-  empty: { textAlign: 'center', color: C.inkSoft, marginTop: 24, fontSize: 13, fontFamily: F.body },
-
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(26,24,19,0.5)', justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: C.cream, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 14,
+  // Modal
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: 20, borderBottomWidth: 1, borderBottomColor: C.line,
   },
-  modalTitle: { fontFamily: F.headingBold, fontSize: 22, color: C.ink, letterSpacing: -0.5 },
+  modalTitle: { fontFamily: F.headingBold, fontSize: 20, color: C.ink, letterSpacing: -0.3 },
   modalInput: {
-    borderWidth: 1.5, borderColor: C.line, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10,
-    fontSize: 14, fontFamily: F.body, color: C.ink, backgroundColor: C.card,
+    borderWidth: 1.5, borderColor: C.line, borderRadius: 14,
+    paddingHorizontal: 16, paddingVertical: 13,
+    fontSize: 15, fontFamily: F.bodySemi, color: C.ink, backgroundColor: C.card,
   },
-  modalSubLabel: { fontSize: 12, fontFamily: F.bodySemi, color: C.inkSoft },
-  sportChipModal: {
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
-    borderWidth: 1.5, borderColor: C.line, backgroundColor: C.card,
-  },
+  modalSubLabel: { fontSize: 12, fontFamily: F.bodyBold, color: C.inkSoft, textTransform: 'uppercase', letterSpacing: 1 },
+  sportChip: { flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: C.line, backgroundColor: C.card, alignItems: 'center' },
+  sportChipText: { fontSize: 13, fontFamily: F.bodyBold, color: C.inkSoft },
+  createGroupBtn: { backgroundColor: C.ink, borderRadius: 999, paddingVertical: 15, alignItems: 'center' },
+  createGroupBtnText: { fontSize: 15, fontFamily: F.bodyBold, color: C.cream },
 })
