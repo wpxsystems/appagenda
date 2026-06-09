@@ -4,7 +4,7 @@ const rateLimit = require('express-rate-limit');
 // (logins bem-sucedidos não contam, pra não punir quem digitou senha errada uma vez)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 5,
+  limit: 50,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   skipSuccessfulRequests: true,
