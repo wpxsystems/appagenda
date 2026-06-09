@@ -110,7 +110,7 @@ const FILTERS = [
 ] as const
 
 const AVATAR_COLORS = ['#2E6F9E','#D4880A','#B03A2E','#5B7A4C','#8A5A9E','#C2607F','#3A7A6E','#A0622A']
-const PT_WEEKDAY_SHORT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
+const PT_WEEKDAY_SHORT = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado']
 const PT_MONTH_LONG = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 const PT_MONTH_SHORT = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']
 
