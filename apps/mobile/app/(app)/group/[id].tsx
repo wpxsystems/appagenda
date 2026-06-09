@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   FlatList, Modal, ActivityIndicator, ScrollView,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Share,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -109,6 +109,15 @@ export default function GroupScreen() {
     setLoadingInvite(false)
   }
 
+  async function shareGroup() {
+    const groupName = group?.nome ?? 'nosso grupo'
+    const sport = group?.sport ? ` de ${SPORT_LABEL[group.sport] ?? group.sport}` : ''
+    await Share.share({
+      message: `Ei! Te convido para entrar no grupo "${groupName}"${sport} no PlayNet. Baixe o app e procure por mim para entrar! 🎾`,
+      title: `Convite — ${groupName}`,
+    })
+  }
+
   async function inviteUser(targetId: string) {
     setInvitingUserId(targetId)
     try {
@@ -130,21 +139,41 @@ export default function GroupScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={10} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={C.ink} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          {sport ? (
-            <View style={[s.sportTag, { backgroundColor: `${accentColor}18` }]}>
-              <Text style={[s.sportTagText, { color: accentColor }]}>{SPORT_LABEL[sport] ?? sport}</Text>
-            </View>
-          ) : null}
-          <Text style={s.headerTitle} numberOfLines={1}>{group?.nome ?? '…'}</Text>
+        <View style={s.headerTop}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={10} style={s.backBtn}>
+            <Ionicons name="chevron-back" size={22} color={C.ink} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            {sport ? (
+              <View style={[s.sportTag, { backgroundColor: `${accentColor}18` }]}>
+                <Text style={[s.sportTagText, { color: accentColor }]}>{SPORT_LABEL[sport] ?? sport}</Text>
+              </View>
+            ) : null}
+            <Text style={s.headerTitle} numberOfLines={1}>{group?.nome ?? '…'}</Text>
+          </View>
+          <TouchableOpacity onPress={shareGroup} hitSlop={10} style={s.shareIconBtn}>
+            <Ionicons name="share-outline" size={20} color={C.inkSoft} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={openInvite} style={s.inviteBtn}>
-          <Ionicons name="person-add-outline" size={16} color={C.ink} />
-          <Text style={s.inviteBtnText}>Convidar</Text>
-        </TouchableOpacity>
+        {/* Action buttons */}
+        <View style={s.actionRow}>
+          <TouchableOpacity
+            style={[s.actionBtn, { backgroundColor: accentColor }]}
+            activeOpacity={0.85}
+            onPress={() => router.push(`/(app)/criar?groupId=${id}` as never)}
+          >
+            <Ionicons name="tennisball-outline" size={15} color="#fff" />
+            <Text style={s.actionBtnText}>Marcar jogo</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.actionBtnOutline} activeOpacity={0.8} onPress={openInvite}>
+            <Ionicons name="person-add-outline" size={15} color={C.ink} />
+            <Text style={s.actionBtnOutlineText}>Convidar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.actionBtnOutline} activeOpacity={0.8} onPress={shareGroup}>
+            <Ionicons name="link-outline" size={15} color={C.ink} />
+            <Text style={s.actionBtnOutlineText}>Compartilhar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Members section */}
@@ -290,22 +319,30 @@ const s = StyleSheet.create({
 
   // Header
   header: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 16, paddingVertical: 12,
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: C.line,
-    backgroundColor: C.card,
+    backgroundColor: C.card, gap: 14,
   },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.cream, alignItems: 'center', justifyContent: 'center' },
-  sportTag: { alignSelf: 'flex-start', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, marginBottom: 2 },
+  shareIconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  sportTag: { alignSelf: 'flex-start', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, marginBottom: 3 },
   sportTagText: { fontSize: 10, fontFamily: F.bodyBold, letterSpacing: 0.8, textTransform: 'uppercase' },
-  headerTitle: { fontSize: 17, fontFamily: F.headingBold, color: C.ink, letterSpacing: -0.3 },
-  inviteBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: 999, borderWidth: 1.5, borderColor: C.line,
-    backgroundColor: C.card,
+  headerTitle: { fontSize: 22, fontFamily: F.headingBold, color: C.ink, letterSpacing: -0.5 },
+  actionRow: { flexDirection: 'row', gap: 8 },
+  actionBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 9,
+    borderRadius: 999, flex: 1, justifyContent: 'center',
   },
-  inviteBtnText: { fontSize: 13, fontFamily: F.bodyBold, color: C.ink },
+  actionBtnText: { fontSize: 13, fontFamily: F.bodyBold, color: '#fff' },
+  actionBtnOutline: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 9,
+    borderRadius: 999, borderWidth: 1.5, borderColor: C.line,
+    backgroundColor: C.cream,
+  },
+  actionBtnOutlineText: { fontSize: 13, fontFamily: F.bodyBold, color: C.ink },
 
   // Members
   membersSection: { backgroundColor: C.card, borderBottomWidth: 1, borderBottomColor: C.line },
