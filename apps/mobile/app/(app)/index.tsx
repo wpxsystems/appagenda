@@ -744,7 +744,7 @@ const s = StyleSheet.create({
     letterSpacing: -0.3, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6,
   },
   header: {
-    paddingHorizontal: 20, paddingTop: 14, paddingBottom: 12,
+    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
   },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },

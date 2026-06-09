@@ -352,7 +352,7 @@ export default function ComunidadeScreen() {
 const s = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4,
+    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 4,
   },
   title: { fontFamily: F.headingBold, fontSize: 26, color: C.ink, letterSpacing: -0.5 },
   addBtn: {
@@ -367,7 +367,7 @@ const s = StyleSheet.create({
   tabTextActive: { color: C.ink },
   tabUnderline: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, backgroundColor: C.ink, borderRadius: 999 },
 
-  scroll: { padding: 16, gap: 8, paddingBottom: 32 },
+  scroll: { padding: 16, gap: 10, paddingBottom: 32 },
 
   // Empty
   empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 8 },
