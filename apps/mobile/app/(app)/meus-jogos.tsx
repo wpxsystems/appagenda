@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, FlatList, RefreshControl } from 'react-native'
-import { useFocusEffect } from 'expo-router'
+import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
 import { useAuth } from '../../lib/auth-context'
 import { apiGet, apiPost } from '../../lib/api'
 import { useToast } from '../../components/Toast'
@@ -360,10 +359,13 @@ export default function MeusJogosScreen() {
   const router = useRouter()
   const { user } = useAuth()
   const { showConfirm, showToast } = useToast()
+  const params = useLocalSearchParams<{ tab?: string }>()
   const [myGames, setMyGames] = useState<MyGame[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [tab, setTab] = useState<'proximos' | 'passados'>('proximos')
+  const [tab, setTab] = useState<'proximos' | 'passados'>(
+    params.tab === 'passados' ? 'passados' : 'proximos'
+  )
   const [confirming, setConfirming] = useState<string | null>(null)
   const [ratingGameId, setRatingGameId] = useState<string | null>(null)
 
@@ -454,7 +456,7 @@ export default function MeusJogosScreen() {
               <GameCard
                 key={g.id}
                 g={g}
-                onPress={() => router.push(`/(app)/jogo/${g.id}` as never)}
+                onPress={() => router.push(`/(app)/jogo/${g.id}?fromTab=${tab}` as never)}
                 onConfirm={() => handleConfirm(g.id)}
                 onRate={() => setRatingGameId(g.id)}
                 confirming={confirming === g.id}

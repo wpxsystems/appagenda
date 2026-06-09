@@ -301,7 +301,7 @@ function PlayerAvatar({ id, nome, size = 40 }: { id: string; nome: string; size?
 // ── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function JogoDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, fromTab } = useLocalSearchParams<{ id: string; fromTab?: string }>()
   const router = useRouter()
   const { user } = useAuth()
 
@@ -490,7 +490,7 @@ export default function JogoDetailScreen() {
       {/* ── Header fixo ── */}
       <View style={[s.header, { paddingTop: insets.top + 6 }]}>
         {/* Coluna esquerda: botão voltar */}
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.8}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace(`/(app)/meus-jogos${fromTab ? '?tab=' + fromTab : ''}` as never)} style={s.backBtn} activeOpacity={0.8}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
 
