@@ -904,7 +904,7 @@ const s = StyleSheet.create({
   // Filter adv button row
   filterAdvRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginHorizontal: 16, marginBottom: 8,
+    marginLeft: 16, marginRight: 8, marginBottom: 8,
   },
   filterAdvBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
