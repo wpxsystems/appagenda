@@ -13,7 +13,7 @@ module.exports = async function withUserCtx(userId, fn) {
   if (!UUID_RE.test(userId)) throw new Error('withUserCtx: userId inválido');
   return sequelize.transaction(async (t) => {
     await sequelize.query(
-      `SET LOCAL app.current_user = '${userId}'`,
+      `SET LOCAL "app.current_user" = '${userId}'`,
       { transaction: t }
     );
     return fn(t);
