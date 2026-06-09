@@ -183,9 +183,8 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
             <View>
               <Text style={ep.label}>Apelido <Text style={ep.optional}>(opcional)</Text></Text>
               <View style={ep.prefixWrap}>
-                <View style={ep.prefixBox}>
-                  <Text style={ep.prefixAt}>@</Text>
-                </View>
+                <Text style={ep.prefixAt}>@</Text>
+                <View style={ep.prefixDivider} />
                 <TextInput
                   style={ep.prefixInput}
                   value={form.nickname}
@@ -217,9 +216,9 @@ function EditProfileModal({ visible, initial, onClose, onSaved }: {
             <View>
               <Text style={ep.label}>Telefone <Text style={ep.optional}>(opcional)</Text></Text>
               <View style={ep.prefixWrap}>
-                <View style={ep.prefixBox}>
-                  <Text style={ep.prefixAt}>🇧🇷</Text>
-                </View>
+                <Text style={ep.prefixFlag}>🇧🇷</Text>
+                <Text style={ep.prefixCode}>+55</Text>
+                <View style={ep.prefixDivider} />
                 <TextInput
                   style={ep.prefixInput}
                   value={phoneDisplay}
@@ -1236,16 +1235,14 @@ const ep = StyleSheet.create({
   prefixWrap: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line,
-    borderRadius: 14, overflow: 'hidden',
+    borderRadius: 14, paddingLeft: 14,
   },
-  prefixBox: {
-    paddingHorizontal: 12, paddingVertical: 13,
-    borderRightWidth: 1.5, borderRightColor: C.line,
-    backgroundColor: C.cream, alignItems: 'center', justifyContent: 'center',
-  },
-  prefixAt: { fontSize: 15, fontFamily: F.bodyBold, color: C.inkSoft },
+  prefixAt: { fontSize: 16, fontFamily: F.bodyBold, color: C.inkSoft },
+  prefixFlag: { fontSize: 18 },
+  prefixCode: { fontSize: 14, fontFamily: F.bodyBold, color: C.inkSoft, marginLeft: 5 },
+  prefixDivider: { width: 1, height: 20, backgroundColor: C.line, marginHorizontal: 10 },
   prefixInput: {
-    flex: 1, paddingHorizontal: 14, paddingVertical: 13,
+    flex: 1, paddingRight: 14, paddingVertical: 13,
     fontSize: 15, fontFamily: F.bodySemi, color: C.ink,
   },
   genderChip: {
