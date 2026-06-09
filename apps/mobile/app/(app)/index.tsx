@@ -291,11 +291,14 @@ export default function DescobrirScreen() {
   )
   const activeFilterCount = countActiveFilters(advFilters)
 
+  const dateFiltered = selectedDate
+    ? allGames.filter(g => new Date(g.scheduled_at).toDateString() === selectedDate.toDateString())
+    : allGames
   const counts: Record<string, number> = {
-    all: allGames.length,
-    padel: allGames.filter(g => g.sport === 'padel').length,
-    beach_tennis: allGames.filter(g => g.sport === 'beach_tennis').length,
-    tennis: allGames.filter(g => g.sport === 'tennis').length,
+    all: dateFiltered.length,
+    padel: dateFiltered.filter(g => g.sport === 'padel').length,
+    beach_tennis: dateFiltered.filter(g => g.sport === 'beach_tennis').length,
+    tennis: dateFiltered.filter(g => g.sport === 'tennis').length,
   }
 
 
