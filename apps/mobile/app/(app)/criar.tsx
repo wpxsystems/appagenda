@@ -70,7 +70,7 @@ export default function CriarScreen() {
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d })
   const [calOpen, setCalOpen] = useState(false)
   const [startTime, setStartTime] = useState('09:00')
-  const [endTime, setEndTime] = useState('10:30')
+  const [endTime, setEndTime] = useState('10:00')
   const [timePicker, setTimePicker] = useState<'start' | 'end' | null>(null)
   const [vacancies, setVacancies] = useState(4)
   const [genderType, setGenderType] = useState<'mixed' | 'male' | 'female'>('mixed')
@@ -454,8 +454,8 @@ export default function CriarScreen() {
                     if (invalid) return
                     if (timePicker === 'start') {
                       setStartTime(item)
-                      // Auto-ajusta fim para início + 1h30 se necessário
-                      const newEnd = timeToMin(item) + 90
+                      // Auto-ajusta fim para início + 1h se necessário
+                      const newEnd = timeToMin(item) + 60
                       if (newEnd > timeToMin(endTime) || timeToMin(endTime) <= timeToMin(item)) {
                         const h = Math.floor(newEnd / 60); const m = newEnd % 60
                         setEndTime(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`)
